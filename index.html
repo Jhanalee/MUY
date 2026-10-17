@@ -16,7 +16,7 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="wordmark" href="#home" aria-label="SAT vocabulary home"><span class="wordmark-icon">A–Z</span><span>SAT vocab</span></a>
+        <a class="wordmark" href="#home" aria-label="SAT vocabulary home"><span>SAT vocab</span></a>
         <nav class="main-nav" aria-label="Main navigation">
           <button class="nav-link is-active" type="button" data-view="home" aria-current="page">Sets</button>
           <button class="nav-link" type="button" data-view="study">Study</button>
@@ -82,11 +82,12 @@
           <div class="progress-track" id="progress-track" role="progressbar" aria-label="Study progress" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0"><span id="progress-fill"></span></div>
 
           <div class="card-scene" id="card-scene">
-            <article class="flashcard" id="flashcard" tabindex="0" role="button" aria-label="Vocabulary card. Press Enter or Space to reveal the definition.">
+            <article class="flashcard" id="flashcard" tabindex="0" role="group" aria-label="Vocabulary card. Press Enter or Space to reveal the definition.">
               <div class="card-face card-front" id="card-front">
                 <div class="card-topline"><span class="card-index" id="card-index">01 <span>/ 08</span></span><span class="tap-hint"><span>↗</span> Tap to reveal</span></div>
                 <div class="front-wording"><span class="part-of-speech" id="front-pos">ADJECTIVE</span><h2 id="front-word">aberrant</h2><p class="transcription" id="front-phonetic">/əˈberənt/</p></div>
-                <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
+                <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span></div>
+                <button class="listen-button" type="button" aria-label="Listen to this word" title="Listen to this word"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></button>
               </div>
               <div class="card-face card-back" id="card-back" aria-hidden="true">
                 <div class="card-topline"><span class="back-label"><span class="back-dot"></span> THE MEANING</span><span class="back-word" id="back-word">aberrant</span></div>
@@ -95,10 +96,10 @@
                   <span class="detail-label">CLOSEST IN MEANING</span><p class="synonyms" id="back-synonyms"></p>
                   <span class="detail-label">IN CONTEXT</span><p class="example" id="back-example"></p>
                 </div>
-                <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
+                <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span></div>
+                <button class="listen-button" type="button" aria-label="Listen to this word" title="Listen to this word"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></button>
               </div>
             </article>
-            <button class="listen-button" id="listen-button" type="button" aria-label="Listen to this word" title="Listen to this word"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></button>
           </div>
 
           <div class="answer-area" id="answer-area">

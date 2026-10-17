@@ -36,15 +36,15 @@ function loadActiveSet() {
 }
 
 function loadVoiceSettings() {
-  const defaults = { gender: "female", speed: "normal", onCard: false, onFlip: false };
+  const defaults = { gender: "female", speed: "normal", onCard: true, onFlip: true };
   try {
     const saved = JSON.parse(localStorage.getItem(voiceSettingsStorageKey) || "null");
     if (!saved || typeof saved !== "object") return defaults;
     return {
       gender: ["female", "male"].includes(saved.gender) ? saved.gender : defaults.gender,
       speed: ["normal", "slow"].includes(saved.speed) ? saved.speed : defaults.speed,
-      onCard: saved.onCard === true,
-      onFlip: saved.onFlip === true
+      onCard: saved.version === 2 ? saved.onCard === true : true,
+      onFlip: saved.version === 2 ? saved.onFlip === true : true
     };
   } catch {
     return defaults;
@@ -53,7 +53,7 @@ function loadVoiceSettings() {
 
 function saveVoiceSettings() {
   try {
-    localStorage.setItem(voiceSettingsStorageKey, JSON.stringify(voiceSettings));
+    localStorage.setItem(voiceSettingsStorageKey, JSON.stringify({ ...voiceSettings, version: 2 }));
   } catch {
     // Voice preferences still apply for the current session.
   }
@@ -120,7 +120,7 @@ function voiceNameMatchesGender(voice) {
 function speakWord(word) {
   if (!supportsSpeech) return false;
   const synthesis = window.speechSynthesis;
-  synthesis.cancel();
+  if (synthesis.speaking || synthesis.pending) synthesis.cancel();
   const utterance = new window.SpeechSynthesisUtterance(word);
   const voice = preferredVoice();
   if (voice) {
@@ -133,11 +133,16 @@ function speakWord(word) {
   utterance.pitch = voiceNameMatchesGender(voice || { name: "" })
     ? 1
     : voiceSettings.gender === "female" ? 1.18 : 0.82;
-  utterance.onerror = () => updateVoiceNote("Playback failed. Check that your device has an English speech voice enabled.");
-  synthesis.speak(utterance);
-  updateVoiceNote(voice
+  utterance.onstart = () => updateVoiceNote(voice
     ? `Speaking with ${voice.name}.`
     : "Speaking with your device's default English voice.");
+  utterance.onerror = (event) => {
+    if (event.error !== "canceled" && event.error !== "interrupted") {
+      updateVoiceNote("Playback failed. Check that your device has an English speech voice enabled.");
+    }
+  };
+  if (synthesis.paused) synthesis.resume();
+  synthesis.speak(utterance);
   return true;
 }
 
@@ -432,12 +437,17 @@ document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-o
     updateVoiceNote();
   });
 });
-document.querySelector("#listen-button").addEventListener("click", () => speakWord(currentWord().word));
+document.querySelectorAll(".listen-button").forEach((button) => {
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    speakWord(currentWord().word);
+  });
+});
 if (supportsSpeech) {
   refreshVoices();
   window.speechSynthesis.onvoiceschanged = refreshVoices;
 } else {
-  document.querySelector("#listen-button").disabled = true;
+  document.querySelectorAll(".listen-button").forEach((button) => { button.disabled = true; });
   [voiceSelect, speedSelect, onCardToggle, onFlipToggle].forEach((control) => { control.disabled = true; });
   updateVoiceNote("Speech playback is not supported by this browser.");
 }
@@ -451,8 +461,12 @@ document.querySelector(".wordmark").addEventListener("click", (event) => {
   event.preventDefault();
   setView("home");
 });
-flashcard.addEventListener("click", () => setCardFace(!flashcard.classList.contains("is-flipped")));
+flashcard.addEventListener("click", (event) => {
+  if (event.target.closest(".listen-button")) return;
+  setCardFace(!flashcard.classList.contains("is-flipped"));
+});
 flashcard.addEventListener("keydown", (event) => {
+  if (event.target.closest(".listen-button")) return;
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
     setCardFace(!flashcard.classList.contains("is-flipped"));

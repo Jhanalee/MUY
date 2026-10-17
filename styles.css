@@ -20,6 +20,7 @@
   --rose: #e69c8f;
   --rose-dark: #30211e;
   --review-border: #49322d;
+  --review-hover: #b5796b;
   --selection-border: #78845a;
   --card-top: #242720;
   --card-bottom: #1c1f1b;
@@ -54,6 +55,7 @@
   --rose: #efb0a7;
   --rose-dark: #382321;
   --review-border: #65403d;
+  --review-hover: #c67c74;
   --selection-border: #a25d58;
   --card-top: #2c1e20;
   --card-bottom: #211819;
@@ -82,6 +84,7 @@
   --rose: #a4adb8;
   --rose-dark: #252a30;
   --review-border: #3b414a;
+  --review-hover: #7f8996;
   --selection-border: #737b85;
   --card-top: #24272b;
   --card-bottom: #1b1e22;
@@ -99,7 +102,6 @@ button:focus-visible, a:focus-visible, .flashcard:focus-visible { outline: 2px s
 .app-shell { width: min(100%, 1080px); min-height: 100vh; margin: auto; padding: 0 52px; }
 .topbar { height: 78px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
 .wordmark { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 600; }
-.wordmark-icon { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--selection-border); border-radius: 50%; color: var(--lime); font: 500 18px "Newsreader", Georgia, serif; }
 .main-nav { display: flex; align-items: stretch; align-self: stretch; gap: 30px; }
 .nav-link { position: relative; display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 12px; cursor: pointer; }
 .nav-link:hover, .nav-link.is-active { color: var(--ink); }
@@ -177,11 +179,9 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
 .front-wording h2 { margin: 0; font: 400 clamp(41px, 8vw, 56px)/1.1 "Newsreader", Georgia, serif; overflow-wrap: anywhere; }
 .transcription { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
 .card-footline { color: var(--muted); font-size: 8px; font-weight: 600; letter-spacing: 1.5px; }
-.card-footline .card-set-name { margin-left: 58px; }
-.card-symbol { color: var(--lime); font: 400 13px "Newsreader", Georgia, serif; letter-spacing: 0; }
-.listen-button { position: absolute; z-index: 3; right: 12px; bottom: 12px; display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--border); border-radius: 2px; background: var(--ground); color: var(--lime); cursor: pointer; transition: border-color .18s, background .18s, transform .18s; }
+.listen-button { position: absolute; z-index: 2; right: 12px; bottom: 12px; display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; transition: border-color .18s, background .18s, color .18s; }
 .listen-button svg { width: 17px; height: 17px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
-.listen-button:hover { transform: translateY(-1px); border-color: var(--selection-border); background: var(--surface); }
+.listen-button:hover { border-color: var(--selection-border); background: var(--surface); color: var(--lime); }
 .listen-button:disabled { opacity: .45; cursor: not-allowed; }
 .card-back { transform: rotateY(180deg); padding-inline: 27px; }
 .back-label { display: inline-flex; align-items: center; gap: 7px; color: var(--lime); font-size: 9px; font-weight: 600; letter-spacing: 1.3px; }
@@ -202,7 +202,7 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
 .answer-button:disabled { opacity: .48; cursor: not-allowed; }
 .answer-button:not(:disabled):hover { transform: translateY(-1px); }
 .answer-review { border-color: var(--review-border); background: var(--rose-dark); color: var(--rose); }
-.answer-review:not(:disabled):hover { filter: brightness(1.15); }
+.answer-review:not(:disabled):hover { border-color: var(--review-hover); }
 .answer-remember { border-color: var(--selection-border); background: var(--lime-dark); color: var(--lime); }
 .answer-remember:not(:disabled):hover { filter: brightness(1.15); }
 .answer-icon { font-size: 16px; line-height: 1; }
@@ -256,7 +256,6 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
   .app-shell { padding-inline: 23px; }
   .topbar { height: auto; min-height: 66px; flex-wrap: wrap; gap: 12px; padding-block: 11px 0; }
   .wordmark { gap: 8px; font-size: 12px; }
-  .wordmark-icon { width: 25px; height: 25px; }
   .main-nav { gap: 18px; }
   .main-nav { order: 3; width: 100%; height: 36px; justify-content: center; }
   .settings-trigger { width: 34px; height: 34px; }
@@ -287,8 +286,7 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
   .collection-set-controls .set-select { max-width: 165px; }
   .card-scene { height: 274px; margin-top: 23px; }
   .card-face { padding: 20px 20px 17px; }
-  .card-footline .card-set-name { margin-left: 55px; }
-  .listen-button { right: 10px; bottom: 10px; width: 32px; height: 32px; }
+  .listen-button { right: 9px; bottom: 9px; }
   .card-front::after { right: 20px; }
   .card-back { padding-inline: 19px; }
   .back-content { padding-inline: 3px; }
@@ -310,7 +308,6 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
   .app-shell { padding-inline: 17px; }
   .main-nav { gap: 13px; }
   .wordmark { gap: 6px; font-size: 11px; }
-  .wordmark-icon { font-size: 10px; }
   .nav-link { font-size: 10px; }
   .preview-heading { align-items: flex-start; flex-direction: column; }
   .list-tabs { gap: 12px; }
