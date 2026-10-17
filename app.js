@@ -769,7 +769,7 @@ function parseRawVocabulary(text) {
       // Phần nghĩa và loại từ
       if (parts[1]) {
         let defText = parts[1].trim();
-        const posMatch = defText.match(/\((v\.\vert{}n\.\vert{}adj\.\vert{}adv\.\vert{}noun\vert{}verb\vert{}adjective\vert{}adverb)\)/i);
+        const posMatch = defText.match(/\((v\.|n\.|adj\.|adv\.|noun|verb|adjective|adverb)\)/i);
         if (posMatch) {
           const rawPos = posMatch[1].toLowerCase().replace(".", "");
           pos = rawPos === "v" ? "verb" : rawPos === "n" ? "noun" : rawPos === "adj" ? "adjective" : rawPos === "adv" ? "adverb" : rawPos;
@@ -980,3 +980,4 @@ updateSelectDropdowns();
 renderCard();
 renderWords();
 renderHome();
+syncOnlineDecks();
