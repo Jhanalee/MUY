@@ -25,7 +25,7 @@ const storageKey = "marginalia-sat-progress-v2";
 const legacyStorageKey = "marginalia-sat-progress-v1";
 const activeSetStorageKey = "marginalia-sat-active-set-v1";
 
-// Đảm bảo an toàn không bị lỗi khi sets.js tải chậm
+// Bảo vệ tránh crash khi sets.js tải chậm
 const allSets = (typeof sets !== "undefined" && Array.isArray(sets)) ? sets : [];
 let setsById = new Map(allSets.map((set) => [set.id, set]));
 
@@ -482,36 +482,81 @@ document.querySelector("#btn-cancel-create")?.addEventListener("click", () => {
   if (customSetSection) customSetSection.hidden = true;
 });
 
-// Phân tích văn bản nhập
+// Phân tích văn bản nhập đầy đủ: từ, loại từ, phiên âm, ví dụ, đồng nghĩa
 function parseRawVocabulary(text) {
   const lines = text.trim().split("\n");
   const cards = [];
 
   lines.forEach((line) => {
-    const separator = line.includes("\t") ? "\t" : (line.includes(" - ") ? " - " : "-");
-    const parts = line.split(separator);
-    if (parts.length >= 2) {
-      const term = parts[0].trim();
-      const def = parts.slice(1).join(separator).trim();
-      if (term && def) {
-        cards.push({
-          word: term,
-          pos: "word",
-          phonetic: "",
-          translation: def,
-          synonyms: [],
-          example: `Example with ${term}.`
-        });
+    line = line.trim();
+    if (!line) return;
+
+    let word = "";
+    let pos = "word";
+    let phonetic = "";
+    let translation = "";
+    let synonyms = [];
+    let example = "";
+
+    // 1. Trường hợp định dạng đầy đủ chuẩn kiki.txt (chứa dấu Tab hoặc dấu gạch đứng '|')
+    if (line.includes("\t") || line.includes("|")) {
+      const parts = line.split(line.includes("\t") ? "\t" : "|").map(p => p.trim()).filter(Boolean);
+      word = parts[0];
+
+      // Đọc phần nghĩa và loại từ
+      if (parts[1]) {
+        let defText = parts[1];
+        const posMatch = defText.match(/\((v\.\vert{}n\.\vert{}adj\.\vert{}adv\.\vert{}noun\vert{}verb\vert{}adjective\vert{}adverb)\)/i);
+        if (posMatch) {
+          const rawPos = posMatch[1].toLowerCase().replace(".", "");
+          pos = rawPos === "v" ? "verb" : rawPos === "n" ? "noun" : rawPos === "adj" ? "adjective" : rawPos === "adv" ? "adverb" : rawPos;
+          defText = defText.replace(posMatch[0], "").trim();
+        }
+        translation = defText;
+      }
+
+      // Đọc các phần tiếp theo: phiên âm, ví dụ, từ đồng nghĩa
+      for (let i = 2; i < parts.length; i++) {
+        const chunk = parts[i];
+        if (chunk.startsWith("/") && chunk.endsWith("/")) {
+          phonetic = chunk;
+        } else if (chunk.toLowerCase().startsWith("vd:") || chunk.toLowerCase().startsWith("ex:")) {
+          example = chunk.replace(/^(vd:|ex:)\s*/i, "").trim();
+        } else if (chunk.toLowerCase().includes("đồng nghĩa:") || chunk.toLowerCase().startsWith("synonyms:")) {
+          const synString = chunk.replace(/.*(đồng nghĩa:|synonyms:)\s*/i, "").trim();
+          synonyms = synString.split(",").map(s => s.trim()).filter(Boolean);
+        }
+      }
+    } 
+    // 2. Trường hợp định dạng ngắn gọn: Từ - Nghĩa
+    else {
+      const separator = line.includes(" - ") ? " - " : "-";
+      const parts = line.split(separator);
+      if (parts.length >= 2) {
+        word = parts[0].trim();
+        translation = parts.slice(1).join(separator).trim();
       }
     }
+
+    if (word && translation) {
+      cards.push({
+        word: word,
+        pos: pos,
+        phonetic: phonetic,
+        translation: translation,
+        synonyms: synonyms,
+        example: example || `Example sentence for ${word}.`
+      });
+    }
   });
+
   return cards;
 }
 
 // Lưu bộ từ lên Firebase
 document.getElementById("btn-save-firebase")?.addEventListener("click", async () => {
   if (!db) {
-    alert("Chưa kết nối được với Firebase Firestore. Vui lòng kiểm tra lại cấu hình mạng!");
+    alert("Chưa kết nối được với Firebase Firestore. Vui lòng kiểm tra lại kết nối mạng!");
     return;
   }
   const title = document.getElementById("deck-title").value.trim();
@@ -524,7 +569,7 @@ document.getElementById("btn-save-firebase")?.addEventListener("click", async ()
 
   const cards = parseRawVocabulary(rawText);
   if (cards.length === 0) {
-    alert("Không tìm thấy từ hợp lệ. Định dạng: Từ - Nghĩa");
+    alert("Không tìm thấy từ hợp lệ. Vui lòng kiểm tra lại định dạng!");
     return;
   }
 
