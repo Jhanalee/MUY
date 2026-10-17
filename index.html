@@ -40,7 +40,9 @@
                 <label class="settings-field" for="voice-speed">Speed
                   <select id="voice-speed"><option value="normal">Normal</option><option value="slow">Slow</option></select>
                 </label>
-                <p class="voice-note" id="voice-note">Words are spoken when a card appears and when it flips.</p>
+                <label class="settings-toggle"><input id="voice-on-card" type="checkbox" /><span>Speak when a card appears</span></label>
+                <label class="settings-toggle"><input id="voice-on-flip" type="checkbox" /><span>Speak when a card flips</span></label>
+                <p class="voice-note" id="voice-note">Uses an English voice available on this device.</p>
               </section>
             </div>
           </details>
@@ -52,7 +54,7 @@
           <div class="home-heading">
             <div><p class="eyebrow">SAT VOCABULARY</p><h1 id="home-title">Choose a set.</h1></div>
             <div style="display: flex; gap: 12px; align-items: center;">
-              <p class="home-intro">Choose a collection to start studying.</p>
+              <p class="home-intro">Pick a collection, preview its words, then study at your pace.</p>
               <button id="toggle-add-set-btn" type="button" class="restart-button" style="margin: 0; padding: 9px 14px; white-space: nowrap; font-size: 11px;">
                 + Create new set
               </button>
@@ -78,6 +80,14 @@
           </div>
 
           <div class="home-set-grid" id="home-set-grid" aria-label="Vocabulary sets"></div>
+          
+          <section class="set-preview" aria-labelledby="preview-title">
+            <div class="preview-heading">
+              <div><p class="eyebrow">WORD PREVIEW <span class="preview-divider">/</span> <span id="preview-count">08 WORDS</span></p><h2 id="preview-title"></h2></div>
+              <button class="preview-start restart-button" id="preview-start" type="button"><span aria-hidden="true">→</span> Study this set</button>
+            </div>
+            <ol class="preview-list" id="preview-list"></ol>
+          </section>
         </section>
 
         <section class="view" id="study-view" aria-labelledby="study-title" hidden>
@@ -90,13 +100,7 @@
               <label class="set-picker"><span class="deck-mark">✳</span><span class="visually-hidden">Choose a study set</span><select class="set-select" id="study-set-select" aria-label="Choose a study set"></select></label>
               <span class="set-progress" id="study-set-progress"></span>
             </div>
-            <div class="study-meta-tools">
-              <div class="study-order" role="group" aria-label="Learning order">
-                <button class="study-order-button is-active" type="button" data-study-order="alphabetical" aria-pressed="true">A–Z</button>
-                <button class="study-order-button" type="button" data-study-order="random" aria-pressed="false">Shuffle</button>
-              </div>
-              <span class="progress-label" id="progress-label">01 <span>/</span> 08</span>
-            </div>
+            <span class="progress-label" id="progress-label">01 <span>/</span> 08</span>
           </div>
           <div class="progress-track" id="progress-track" role="progressbar" aria-label="Study progress" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0"><span id="progress-fill"></span></div>
 
@@ -106,6 +110,7 @@
                 <div class="card-topline"><span class="card-index" id="card-index">01 <span>/ 08</span></span><span class="tap-hint"><span>↗</span> Tap to reveal</span></div>
                 <div class="front-wording"><span class="part-of-speech" id="front-pos">ADJECTIVE</span><h2 id="front-word">aberrant</h2><p class="transcription" id="front-phonetic">/əˈberənt/</p></div>
                 <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span></div>
+                <button class="listen-button" type="button" aria-label="Listen to this word" title="Listen to this word"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></button>
               </div>
               <div class="card-face card-back" id="card-back" aria-hidden="true">
                 <div class="card-topline"><span class="back-label"><span class="back-dot"></span> THE MEANING</span><span class="back-word" id="back-word">aberrant</span></div>
@@ -115,24 +120,18 @@
                   <span class="detail-label">IN CONTEXT</span><p class="example" id="back-example"></p>
                 </div>
                 <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span></div>
+                <button class="listen-button" type="button" aria-label="Listen to this word" title="Listen to this word"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></button>
               </div>
             </article>
           </div>
 
           <div class="answer-area" id="answer-area">
             <div class="answer-actions">
-              <button class="answer-button answer-review" id="review-button" type="button"><span class="answer-icon">×</span><span class="answer-copy"><span class="answer-title">Hard</span><span class="answer-delay" id="hard-delay">Show in 15 sec</span></span><kbd>←</kbd></button>
-              <button class="answer-button answer-remember" id="remember-button" type="button"><span class="answer-icon">✓</span><span class="answer-copy"><span class="answer-title">Easy</span><span class="answer-delay" id="easy-delay">Show in 2 min</span></span><kbd>→</kbd></button>
+              <button class="answer-button answer-review" id="review-button" type="button"><span class="answer-icon">×</span><span>Not yet</span><kbd>←</kbd></button>
+              <button class="answer-button answer-remember" id="remember-button" type="button"><span class="answer-icon">✓</span><span>Remembered</span><kbd>→</kbd></button>
             </div>
             <p class="keyboard-hint">FLIP WITH <kbd>SPACE</kbd></p>
           </div>
-
-          <section class="review-waiting" id="review-waiting" hidden aria-live="polite">
-            <p class="eyebrow">REVIEW QUEUE</p>
-            <h2>Next card soon</h2>
-            <p id="review-countdown"></p>
-            <button class="restart-button" id="finish-early" type="button">Finish for now</button>
-          </section>
 
           <section class="completion-panel" id="completion-panel" hidden aria-live="polite">
             <span class="completion-mark">✳</span><p class="eyebrow">THAT’S THE SET</p>
@@ -140,13 +139,6 @@
             <button class="restart-button" id="restart-button" type="button"><span>↺</span> Study this set again</button>
           </section>
           <div class="session-summary" aria-label="This session"><span><span class="summary-mark mark-review">×</span> <span id="review-tally">0</span> to review</span><span class="summary-separator"></span><span><span class="summary-mark mark-remember">✓</span> <span id="remember-tally">0</span> remembered</span></div>
-          <section class="set-preview" aria-labelledby="preview-title">
-            <div class="preview-heading">
-              <div><p class="eyebrow">WORDS IN THIS SET <span class="preview-divider">/</span> <span id="preview-count">08 WORDS</span></p><h2 id="preview-title"></h2></div>
-              <label class="preview-filter-field" for="preview-filter"><span>Show</span><select class="preview-filter" id="preview-filter"><option value="all">All words</option><option value="learning">Currently learning (0)</option></select></label>
-            </div>
-            <ol class="preview-list" id="preview-list"></ol>
-          </section>
         </section>
 
         <section class="view words-view" id="words-view" aria-labelledby="words-title" hidden>

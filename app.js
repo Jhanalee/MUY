@@ -24,10 +24,10 @@ try {
 const storageKey = "marginalia-sat-progress-v2";
 const legacyStorageKey = "marginalia-sat-progress-v1";
 const activeSetStorageKey = "marginalia-sat-active-set-v1";
+
 const allSets = (typeof sets !== "undefined" && Array.isArray(sets)) ? sets : [];
-const reviewIntervals = [2, 5, 10, 30, 60, 1440].map((minutes) => minutes * 60 * 1000);
-const hardReviewDelay = 15 * 1000;
-const setsById = new Map(allSets.map((set) => [set.id, set]));
+let setsById = new Map(allSets.map((set) => [set.id, set]));
+
 const flashcard = document.querySelector("#flashcard");
 const reviewButton = document.querySelector("#review-button");
 const rememberButton = document.querySelector("#remember-button");
@@ -35,7 +35,6 @@ const homeView = document.querySelector("#home-view");
 const studyView = document.querySelector("#study-view");
 const wordsView = document.querySelector("#words-view");
 const progressTrack = document.querySelector("#progress-track");
-const studyOrderStorageKey = "sat-vocab-study-order-v1";
 const themeStorageKey = "sat-vocab-theme-v1";
 const voiceSettingsStorageKey = "sat-vocab-voice-settings-v1";
 const supportsSpeech = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
@@ -44,12 +43,7 @@ let activeSetId = loadActiveSet();
 let statusBySet = loadProgress();
 let statusByWord = statusBySet[activeSetId] || (statusBySet[activeSetId] = {});
 let currentIndex = 0;
-let studyOrderMode = loadStudyOrderMode();
-let studyOrder = orderCards(activeSet().cards);
-let activeReviewItem = null;
-let reviewQueue = [];
-let easyReviewCounts = {};
-let reviewTimer = null;
+let studyOrder = activeSet().cards.map((entry) => entry.word);
 let sessionResults = { review: 0, remembered: 0 };
 let activeCategory = "all";
 let voiceSettings = loadVoiceSettings();
@@ -69,63 +63,16 @@ function loadActiveSet() {
   }
 }
 
-function loadStudyOrderMode() {
-  try {
-    return localStorage.getItem(studyOrderStorageKey) === "random" ? "random" : "alphabetical";
-  } catch {
-    return "alphabetical";
-  }
-}
-
-function orderCards(cards) {
-  const orderedCards = [...cards];
-  if (studyOrderMode === "alphabetical") {
-    orderedCards.sort((left, right) => left.word.localeCompare(right.word, "en", { sensitivity: "base" }));
-  } else {
-    for (let index = orderedCards.length - 1; index > 0; index -= 1) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [orderedCards[index], orderedCards[swapIndex]] = [orderedCards[swapIndex], orderedCards[index]];
-    }
-  }
-  return orderedCards.map((entry) => entry.word);
-}
-
-function updateStudyOrderControl() {
-  document.querySelectorAll(".study-order-button").forEach((button) => {
-    const isActive = button.dataset.studyOrder === studyOrderMode;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-  });
-}
-
-function changeStudyOrder(mode) {
-  if (!["alphabetical", "random"].includes(mode) || mode === studyOrderMode) return;
-  const currentEntry = currentWord();
-  const completedWords = studyOrder.slice(0, currentIndex);
-  studyOrderMode = mode;
-  try {
-    localStorage.setItem(studyOrderStorageKey, studyOrderMode);
-  } catch {
-    // Keep the selected order for the current session.
-  }
-  updateStudyOrderControl();
-  if (activeReviewItem) return;
-  if (!currentEntry) return;
-
-  const completedSet = new Set(completedWords);
-  const remainingCards = activeSet().cards.filter((entry) => entry.word !== currentEntry.word && !completedSet.has(entry.word));
-  studyOrder = [...completedWords, currentEntry.word, ...orderCards(remainingCards)];
-  renderCard();
-}
-
 function loadVoiceSettings() {
-  const defaults = { gender: "female", speed: "normal" };
+  const defaults = { gender: "female", speed: "normal", onCard: true, onFlip: true };
   try {
     const saved = JSON.parse(localStorage.getItem(voiceSettingsStorageKey) || "null");
     if (!saved || typeof saved !== "object") return defaults;
     return {
       gender: ["female", "male"].includes(saved.gender) ? saved.gender : defaults.gender,
-      speed: ["normal", "slow"].includes(saved.speed) ? saved.speed : defaults.speed
+      speed: ["normal", "slow"].includes(saved.speed) ? saved.speed : defaults.speed,
+      onCard: saved.version === 2 ? saved.onCard === true : true,
+      onFlip: saved.version === 2 ? saved.onFlip === true : true
     };
   } catch {
     return defaults;
@@ -135,9 +82,7 @@ function loadVoiceSettings() {
 function saveVoiceSettings() {
   try {
     localStorage.setItem(voiceSettingsStorageKey, JSON.stringify({ ...voiceSettings, version: 2 }));
-  } catch {
-    // Voice preferences still apply for the current session.
-  }
+  } catch {}
 }
 
 function applyTheme(theme) {
@@ -249,34 +194,11 @@ function saveProgress() {
 }
 
 function currentWord() {
-  if (activeReviewItem) return activeSet().cards.find((entry) => entry.word === activeReviewItem.word);
   return activeSet().cards.find((entry) => entry.word === studyOrder[currentIndex]) || activeSet().cards[0];
 }
 
 function formatCount(count) {
   return String(count).padStart(2, "0");
-}
-
-function formatDelay(delay) {
-  if (delay < 60 * 1000) return `Show in ${Math.ceil(delay / 1000)} sec`;
-  const minutes = Math.ceil(delay / (60 * 1000));
-  if (minutes < 60) return `Show in ${minutes} min`;
-  const hours = Math.ceil(minutes / 60);
-  if (hours < 24) return `Show in ${hours} hr${hours === 1 ? "" : "s"}`;
-  const days = Math.ceil(hours / 24);
-  return `Show in ${days} day${days === 1 ? "" : "s"}`;
-}
-
-function nextEasyReviewDelay(word) {
-  const stage = easyReviewCounts[word] || 0;
-  return reviewIntervals[Math.min(stage, reviewIntervals.length - 1)];
-}
-
-function updateAnswerDelays() {
-  const entry = currentWord();
-  if (!entry) return;
-  document.querySelector("#hard-delay").textContent = formatDelay(hardReviewDelay);
-  document.querySelector("#easy-delay").textContent = formatDelay(nextEasyReviewDelay(entry.word));
 }
 
 function highlightWord(sentence, word) {
@@ -313,7 +235,7 @@ function setCardFace(isFlipped) {
   document.querySelector("#card-front")?.setAttribute("aria-hidden", String(isFlipped));
   document.querySelector("#card-back")?.setAttribute("aria-hidden", String(!isFlipped));
   flashcard.setAttribute("aria-label", isFlipped ? "Definition revealed. Press Enter or Space to see the word again." : "Vocabulary card. Press Enter or Space to reveal the definition.");
-  if (isFlipped && studyView && !studyView.hidden) {
+  if (isFlipped && voiceSettings.onFlip && !studyView.hidden) {
     const entry = currentWord();
     if (entry) speakWord(entry.word);
   }
@@ -323,136 +245,81 @@ function renderCard() {
   const entry = currentWord();
   if (!entry) return;
   const cardIndex = document.querySelector("#card-index");
-  if (cardIndex) {
-    if (activeReviewItem) cardIndex.textContent = "REVIEW";
-    else cardIndex.innerHTML = `${formatCount(currentIndex + 1)} <span>/ ${formatCount(studyOrder.length)}</span>`;
-  }
+  if (cardIndex) cardIndex.innerHTML = `${formatCount(currentIndex + 1)} <span>/ ${formatCount(studyOrder.length)}</span>`;
+  
   const frontPos = document.querySelector("#front-pos");
   if (frontPos) frontPos.textContent = (entry.pos || "WORD").toUpperCase();
+  
   const frontWord = document.querySelector("#front-word");
-  if (frontWord) frontWord.textContent = entry.word || "";
+  if (frontWord) frontWord.textContent = entry.word;
+  
   const frontPhonetic = document.querySelector("#front-phonetic");
   if (frontPhonetic) frontPhonetic.textContent = entry.phonetic || "";
+  
   const backWord = document.querySelector("#back-word");
-  if (backWord) backWord.textContent = entry.word || "";
+  if (backWord) backWord.textContent = entry.word;
+  
   const backTranslation = document.querySelector("#back-translation");
   if (backTranslation) backTranslation.textContent = entry.translation || "";
-  document.querySelectorAll(".card-set-name").forEach((label) => { label.textContent = activeSet().name.toUpperCase(); });
-  const synonyms = Array.isArray(entry.synonyms) ? entry.synonyms : [];
+  
+  document.querySelectorAll(".card-set-name").forEach((label) => { 
+    label.textContent = activeSet().name.toUpperCase(); 
+  });
+  
+  const syns = Array.isArray(entry.synonyms) ? entry.synonyms : [];
   const backSynonyms = document.querySelector("#back-synonyms");
-  if (backSynonyms) backSynonyms.replaceChildren(...synonyms.flatMap((synonym, index) => {
-    const nodes = [document.createTextNode(synonym)];
-    if (index < synonyms.length - 1) {
-      const separator = document.createElement("span");
-      separator.textContent = " · ";
-      nodes.push(separator);
-    }
-    return nodes;
-  }));
-  const backExample = document.querySelector("#back-example");
-  if (backExample) backExample.replaceChildren(...highlightWord(entry.example || "", entry.word || ""));
-  const progressLabel = document.querySelector("#progress-label");
-  if (progressLabel) {
-    if (activeReviewItem) progressLabel.textContent = "Review";
-    else progressLabel.innerHTML = `${formatCount(currentIndex + 1)} <span>/ ${formatCount(studyOrder.length)}</span>`;
+  if (backSynonyms) {
+    backSynonyms.replaceChildren(...syns.flatMap((synonym, index) => {
+      const nodes = [document.createTextNode(synonym)];
+      if (index < syns.length - 1) {
+        const separator = document.createElement("span");
+        separator.textContent = " · ";
+        nodes.push(separator);
+      }
+      return nodes;
+    }));
   }
+  
+  const backExample = document.querySelector("#back-example");
+  if (backExample) {
+    backExample.replaceChildren(...highlightWord(entry.example || "", entry.word));
+  }
+  
+  const progressLabel = document.querySelector("#progress-label");
+  if (progressLabel) progressLabel.innerHTML = `${formatCount(currentIndex + 1)} <span>/</span> ${formatCount(studyOrder.length)}`;
+  
   if (progressTrack) {
     progressTrack.setAttribute("aria-valuemax", String(studyOrder.length));
     progressTrack.setAttribute("aria-valuenow", String(currentIndex));
   }
-  const progressFill = document.querySelector("#progress-fill");
-  if (progressFill) progressFill.style.width = `${(currentIndex / (studyOrder.length || 1)) * 100}%`;
-  const reviewTally = document.querySelector("#review-tally");
-  if (reviewTally) reviewTally.textContent = String(sessionResults.review);
-  const rememberedTally = document.querySelector("#remember-tally");
-  if (rememberedTally) rememberedTally.textContent = String(sessionResults.remembered);
-  const sessionNote = document.querySelector("#session-note");
-  if (sessionNote) sessionNote.textContent = currentIndex === 0 ? "Take a breath. There’s no rush." : "One small step at a time.";
-  updateAnswerDelays();
+  const fill = document.querySelector("#progress-fill");
+  if (fill) fill.style.width = `${(currentIndex / (studyOrder.length || 1)) * 100}%`;
+  
+  document.querySelector("#review-tally").textContent = String(sessionResults.review);
+  document.querySelector("#remember-tally").textContent = String(sessionResults.remembered);
+  document.querySelector("#session-note").textContent = currentIndex === 0 ? "Take a breath. There’s no rush." : "One small step at a time.";
   renderSetProgress();
   setCardFace(false);
-  if (studyView && !studyView.hidden) speakWord(entry.word);
+  if (voiceSettings.onCard && !studyView.hidden) speakWord(entry.word);
 }
 
 function gradeCard(status) {
   const entry = currentWord();
   if (!entry) return;
-  const delay = status === "review" ? hardReviewDelay : nextEasyReviewDelay(entry.word);
-  if (status === "review") easyReviewCounts[entry.word] = 0;
-  else easyReviewCounts[entry.word] = (easyReviewCounts[entry.word] || 0) + 1;
   statusByWord[entry.word] = status;
   sessionResults[status] += 1;
-  reviewQueue.push({ word: entry.word, dueAt: Date.now() + delay });
-  if (!activeReviewItem) currentIndex += 1;
-  activeReviewItem = null;
   saveProgress();
   renderSetProgress();
-  updatePreviewFilterCount();
-  if (previewFilterMode === "learning") renderSetPreview();
-  showNextStudyCard();
-}
-
-function showNextStudyCard() {
-  if (reviewTimer) {
-    clearInterval(reviewTimer);
-    reviewTimer = null;
-  }
-  const dueReviewIndex = reviewQueue.findIndex((item) => item.dueAt <= Date.now());
-  if (dueReviewIndex !== -1) {
-    activeReviewItem = reviewQueue.splice(dueReviewIndex, 1)[0];
-    document.querySelector("#review-waiting").hidden = true;
-    document.querySelector("#completion-panel").hidden = true;
-    document.querySelector("#card-scene").hidden = false;
-    document.querySelector("#answer-area").hidden = false;
-    renderCard();
+  currentIndex += 1;
+  if (currentIndex >= studyOrder.length) {
+    showCompletion();
     return;
   }
-  activeReviewItem = null;
-  if (currentIndex < studyOrder.length) {
-    document.querySelector("#review-waiting").hidden = true;
-    document.querySelector("#completion-panel").hidden = true;
-    document.querySelector("#card-scene").hidden = false;
-    document.querySelector("#answer-area").hidden = false;
-    renderCard();
-    return;
-  }
-  if (reviewQueue.length) {
-    showReviewWaiting();
-    return;
-  }
-  showCompletion();
-}
-
-function showReviewWaiting() {
-  document.querySelector("#card-scene").hidden = true;
-  document.querySelector("#answer-area").hidden = true;
-  document.querySelector("#completion-panel").hidden = true;
-  document.querySelector("#review-waiting").hidden = false;
-
-  const updateCountdown = () => {
-    const nextReview = reviewQueue.reduce((earliest, item) => item.dueAt < earliest.dueAt ? item : earliest, reviewQueue[0]);
-    const remaining = nextReview.dueAt - Date.now();
-    if (remaining <= 0) {
-      showNextStudyCard();
-      return;
-    }
-    document.querySelector("#review-countdown").textContent = `Next card in ${formatDelay(remaining).replace(/^Show in /, "")}. Reviews stay in this session.`;
-  };
-
-  updateCountdown();
-  if (reviewQueue.length) reviewTimer = setInterval(updateCountdown, 1000);
+  renderCard();
 }
 
 function showCompletion() {
-  if (reviewTimer) {
-    clearInterval(reviewTimer);
-    reviewTimer = null;
-  }
-  reviewQueue = [];
-  activeReviewItem = null;
-  const reviewWaiting = document.querySelector("#review-waiting");
-  if (reviewWaiting) reviewWaiting.hidden = true;
-  flashcard.classList.remove("is-flipped");
+  if (flashcard) flashcard.classList.remove("is-flipped");
   document.querySelector("#card-scene").hidden = true;
   document.querySelector("#answer-area").hidden = true;
   document.querySelector("#completion-panel").hidden = false;
@@ -465,16 +332,10 @@ function showCompletion() {
 }
 
 function startStudy() {
-  if (reviewTimer) clearInterval(reviewTimer);
-  reviewTimer = null;
-  reviewQueue = [];
-  easyReviewCounts = {};
-  activeReviewItem = null;
   currentIndex = 0;
   sessionResults = { review: 0, remembered: 0 };
-  studyOrder = orderCards(activeSet().cards);
+  studyOrder = activeSet().cards.map((entry) => entry.word);
   document.querySelector("#completion-panel").hidden = true;
-  document.querySelector("#review-waiting").hidden = true;
   document.querySelector("#card-scene").hidden = false;
   document.querySelector("#answer-area").hidden = false;
   renderCard();
@@ -542,94 +403,37 @@ function renderHome() {
     name.textContent = set.name;
     const progress = document.createElement("span");
     progress.className = "home-set-progress";
-    progress.textContent = `${rememberedCount} / ${set.cards.length} words learned`;
-    const progressTrack = document.createElement("span");
-    progressTrack.className = "home-set-progress-track";
-    progressTrack.setAttribute("aria-hidden", "true");
-    const progressFill = document.createElement("span");
-    progressFill.style.width = `${(rememberedCount / set.cards.length) * 100}%`;
-    progressTrack.append(progressFill);
+    progress.textContent = `${rememberedCount} / ${set.cards.length} remembered`;
     const arrow = document.createElement("span");
     arrow.className = "home-set-arrow";
     arrow.setAttribute("aria-hidden", "true");
     arrow.textContent = "↗";
-    option.append(label, name, progress, progressTrack, arrow);
-    option.addEventListener("click", () => {
-      changeSet(set.id);
-      setView("study");
-    });
+    option.append(label, name, progress, arrow);
+    option.addEventListener("click", () => changeSet(set.id));
     setGrid.append(option);
   });
-}
 
-function updatePreviewFilterCount() {
-  const learningCount = activeSet().cards.filter((entry) => statusByWord[entry.word]).length;
-  const learningOption = document.querySelector('#preview-filter option[value="learning"]');
-  if (learningOption) learningOption.textContent = `Currently learning (${learningCount})`;
-  const previewCount = document.querySelector("#preview-count");
-  if (previewCount && previewFilterMode === "learning") previewCount.textContent = `${formatCount(learningCount)} LEARNING`;
-  return learningCount;
-}
-
-function renderSetPreview() {
   const selectedSet = activeSet();
   const previewTitle = document.querySelector("#preview-title");
   if (previewTitle) previewTitle.textContent = selectedSet.name;
+  const previewCount = document.querySelector("#preview-count");
+  if (previewCount) previewCount.textContent = `${formatCount(selectedSet.cards.length)} WORDS`;
   const previewList = document.querySelector("#preview-list");
   if (!previewList) return;
-  const learningCount = updatePreviewFilterCount();
-  const learningCards = selectedSet.cards.filter((entry) => statusByWord[entry.word]);
-  const visibleCards = previewFilterMode === "learning" ? learningCards : selectedSet.cards;
-  const previewCount = document.querySelector("#preview-count");
-  if (previewCount) previewCount.textContent = previewFilterMode === "learning"
-    ? `${formatCount(learningCount)} LEARNING`
-    : `${formatCount(selectedSet.cards.length)} WORDS`;
   previewList.replaceChildren();
-  if (!visibleCards.length) {
-    const empty = document.createElement("li");
-    empty.className = "preview-empty";
-    empty.textContent = "Words you mark Hard or Easy will appear here.";
-    previewList.append(empty);
-    return;
-  }
-  visibleCards.forEach((entry) => {
+  selectedSet.cards.forEach((entry) => {
     const row = document.createElement("li");
     row.className = "preview-word-row";
-    const card = document.createElement("button");
-    card.className = "preview-word-card";
-    card.type = "button";
-    const synonyms = Array.isArray(entry.synonyms) ? entry.synonyms : [];
-    card.setAttribute("aria-label", `Play ${entry.word}. ${entry.pos || "Word"}. ${entry.phonetic || ""}. Synonyms: ${synonyms.join(", ")}. ${entry.translation || ""}. ${entry.example || ""}`);
-    card.addEventListener("click", () => speakWord(entry.word));
-    const left = document.createElement("div");
-    left.className = "preview-card-left";
-    const right = document.createElement("div");
-    right.className = "preview-card-right";
-    const heading = document.createElement("div");
-    heading.className = "preview-word-heading";
     const word = document.createElement("span");
     word.className = "preview-word";
     word.textContent = entry.word;
     const pos = document.createElement("span");
     pos.className = "preview-pos";
-    pos.textContent = entry.pos || "WORD";
-    const phonetic = document.createElement("span");
-    phonetic.className = "preview-phonetic";
-    phonetic.textContent = entry.phonetic || "";
-    const synonymList = document.createElement("p");
-    synonymList.className = "preview-synonyms";
-    synonymList.textContent = synonyms.join(" · ");
+    pos.textContent = entry.pos || "";
     const translation = document.createElement("span");
     translation.className = "preview-translation";
     translation.textContent = entry.translation || "";
-    const example = document.createElement("p");
-    example.className = "preview-example";
-    example.replaceChildren(...highlightWord(entry.example || "", entry.word || ""));
-    heading.append(word, pos);
-    left.append(heading, phonetic, synonymList);
-    right.append(translation, example);
-    card.append(left, right);
-    row.append(card);
+    row.append(word, pos, translation);
     previewList.append(row);
   });
 }
@@ -686,7 +490,6 @@ function changeSet(setId) {
   startStudy();
   renderWords();
   renderHome();
-  renderSetPreview();
 }
 
 function setView(view) {
@@ -703,7 +506,7 @@ function setView(view) {
   });
   if (isHome) renderHome();
   if (view === "words") renderWords();
-  if (isStudy && !document.querySelector("#card-scene").hidden) {
+  if (isStudy && voiceSettings.onCard && !document.querySelector("#card-scene").hidden) {
     const entry = currentWord();
     if (entry) speakWord(entry.word);
   }
@@ -883,25 +686,44 @@ async function syncOnlineDecks() {
 const settingsMenu = document.querySelector("#settings-menu");
 const voiceSelect = document.querySelector("#voice-gender");
 const speedSelect = document.querySelector("#voice-speed");
+const onCardToggle = document.querySelector("#voice-on-card");
+const onFlipToggle = document.querySelector("#voice-on-flip");
+
 document.querySelector("#theme-select")?.addEventListener("change", (event) => applyTheme(event.target.value));
 applyTheme(loadTheme());
+
 if (voiceSelect) voiceSelect.value = voiceSettings.gender;
 if (speedSelect) speedSelect.value = voiceSettings.speed;
-document.querySelectorAll("#voice-gender, #voice-speed").forEach((control) => {
+if (onCardToggle) onCardToggle.checked = voiceSettings.onCard;
+if (onFlipToggle) onFlipToggle.checked = voiceSettings.onFlip;
+
+document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-on-flip").forEach((control) => {
   control.addEventListener("change", () => {
     voiceSettings = {
       gender: voiceSelect.value,
-      speed: speedSelect.value
+      speed: speedSelect.value,
+      onCard: onCardToggle.checked,
+      onFlip: onFlipToggle.checked
     };
     saveVoiceSettings();
     updateVoiceNote();
   });
 });
+
+document.querySelectorAll(".listen-button").forEach((button) => {
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const entry = currentWord();
+    if (entry) speakWord(entry.word);
+  });
+});
+
 if (supportsSpeech) {
   refreshVoices();
   window.speechSynthesis.onvoiceschanged = refreshVoices;
 } else {
-  [voiceSelect, speedSelect].filter(Boolean).forEach((control) => { control.disabled = true; });
+  document.querySelectorAll(".listen-button").forEach((button) => { button.disabled = true; });
+  [voiceSelect, speedSelect, onCardToggle, onFlipToggle].forEach((control) => { if (control) control.disabled = true; });
   updateVoiceNote("Speech playback is not supported by this browser.");
 }
 
@@ -915,25 +737,29 @@ document.querySelector(".wordmark")?.addEventListener("click", (event) => {
   event.preventDefault();
   setView("home");
 });
-flashcard?.addEventListener("click", () => {
-  setCardFace(!flashcard.classList.contains("is-flipped"));
-});
-flashcard?.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
+
+if (flashcard) {
+  flashcard.addEventListener("click", (event) => {
+    if (event.target.closest(".listen-button")) return;
     setCardFace(!flashcard.classList.contains("is-flipped"));
-  }
-});
-reviewButton.addEventListener("click", () => gradeCard("review"));
-rememberButton.addEventListener("click", () => gradeCard("remembered"));
-document.querySelector("#restart-button").addEventListener("click", startStudy);
+  });
+  flashcard.addEventListener("keydown", (event) => {
+    if (event.target.closest(".listen-button")) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setCardFace(!flashcard.classList.contains("is-flipped"));
+    }
+  });
+}
+
+reviewButton?.addEventListener("click", () => gradeCard("review"));
+rememberButton?.addEventListener("click", () => gradeCard("remembered"));
+document.querySelector("#restart-button")?.addEventListener("click", startStudy);
+document.querySelector("#preview-start")?.addEventListener("click", () => setView("study"));
+
 document.querySelectorAll(".set-select").forEach((select) => {
   select.addEventListener("change", () => changeSet(select.value));
 });
-document.querySelectorAll(".study-order-button").forEach((button) => {
-  button.addEventListener("click", () => changeStudyOrder(button.dataset.studyOrder));
-});
-updateStudyOrderControl();
 document.querySelectorAll(".nav-link").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelector("#back-to-study")?.addEventListener("click", () => setView("study"));
 
@@ -955,7 +781,7 @@ document.querySelector("#reset-progress")?.addEventListener("click", () => {
   saveProgress();
   renderCard();
   renderHome();
-  if (!wordsView.hidden) renderWords();
+  if (wordsView && !wordsView.hidden) renderWords();
 });
 
 document.addEventListener("keydown", (event) => {
@@ -970,13 +796,9 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") gradeCard("remembered");
 });
 
-document.querySelector("#preview-filter").addEventListener("change", (event) => {
-  previewFilterMode = event.target.value === "learning" ? "learning" : "all";
-  renderSetPreview();
-});
-
 // Khởi chạy
 updateSelectDropdowns();
 renderCard();
 renderWords();
 renderHome();
+syncOnlineDecks();git add app.js
