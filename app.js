@@ -63,6 +63,11 @@ function applyTheme(theme) {
   const selectedTheme = ["green", "red", "graphite"].includes(theme) ? theme : "green";
   document.documentElement.dataset.theme = selectedTheme;
   document.querySelector("#theme-select").value = selectedTheme;
+  document.querySelector('meta[name="theme-color"]').content = {
+    green: "#171916",
+    red: "#1d1718",
+    graphite: "#17191d"
+  }[selectedTheme];
   try {
     localStorage.setItem(themeStorageKey, selectedTheme);
   } catch {
@@ -79,21 +84,44 @@ function loadTheme() {
 }
 
 function refreshVoices() {
-  if (supportsSpeech) availableVoices = window.speechSynthesis.getVoices();
+  if (!supportsSpeech) return;
+  availableVoices = window.speechSynthesis.getVoices();
+  updateVoiceNote();
 }
 
 function preferredVoice() {
   const englishVoices = availableVoices.filter((voice) => voice.lang.toLowerCase().startsWith("en"));
   const voiceNamePatterns = voiceSettings.gender === "female"
+    ? /\b(?:female|woman|zira|samantha|victoria|karen|moira|tessa|susan|aria|jenny|linda|amy|allison|ava|siri.*(?:1|2|3|4|5|6|7|8|9))\b/i
+    : /\b(?:male|man|david|alex|daniel|james|guy|ryan|fred|tom|george|mark|aaron|arthur|oliver|lee|thomas|rishi)\b/i;
+  const matchedVoice = englishVoices.find((voice) => voiceNamePatterns.test(voice.name));
+  return matchedVoice || englishVoices[0] || null;
+}
+
+function updateVoiceNote(message) {
+  const note = document.querySelector("#voice-note");
+  if (message) {
+    note.textContent = message;
+    return;
+  }
+  const voice = preferredVoice();
+  note.textContent = voice
+    ? `Using ${voice.name}${voiceNameMatchesGender(voice) ? "" : ` with ${voiceSettings.gender}-leaning pitch`}.`
+    : "No English voice is available yet. Try again after voices load.";
+}
+
+function voiceNameMatchesGender(voice) {
+  const pattern = voiceSettings.gender === "female"
     ? /\b(?:female|woman|zira|samantha|victoria|karen|moira|tessa|susan|aria|jenny|linda|amy|allison|ava)\b/i
-    : /\b(?:male|man|david|alex|daniel|james|guy|ryan|fred|tom|george|mark|aaron|arthur|oliver)\b/i;
-  return englishVoices.find((voice) => voiceNamePatterns.test(voice.name)) || englishVoices[0] || null;
+    : /\b(?:male|man|david|alex|daniel|james|guy|ryan|fred|tom|george|mark|aaron|arthur|oliver|lee|thomas|rishi)\b/i;
+  return pattern.test(voice.name);
 }
 
 function speakWord(word) {
-  if (!supportsSpeech) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(word);
+  if (!supportsSpeech) return false;
+  const synthesis = window.speechSynthesis;
+  synthesis.cancel();
+  const utterance = new window.SpeechSynthesisUtterance(word);
   const voice = preferredVoice();
   if (voice) {
     utterance.voice = voice;
@@ -102,8 +130,15 @@ function speakWord(word) {
     utterance.lang = "en-US";
   }
   utterance.rate = voiceSettings.speed === "slow" ? 0.72 : 1;
-  utterance.pitch = voiceSettings.gender === "female" ? 1.12 : 0.88;
-  window.speechSynthesis.speak(utterance);
+  utterance.pitch = voiceNameMatchesGender(voice || { name: "" })
+    ? 1
+    : voiceSettings.gender === "female" ? 1.18 : 0.82;
+  utterance.onerror = () => updateVoiceNote("Playback failed. Check that your device has an English speech voice enabled.");
+  synthesis.speak(utterance);
+  updateVoiceNote(voice
+    ? `Speaking with ${voice.name}.`
+    : "Speaking with your device's default English voice.");
+  return true;
 }
 
 function loadProgress() {
@@ -374,7 +409,7 @@ function setView(view) {
   }
 }
 
-const voiceDialog = document.querySelector("#voice-dialog");
+const settingsMenu = document.querySelector("#settings-menu");
 const voiceSelect = document.querySelector("#voice-gender");
 const speedSelect = document.querySelector("#voice-speed");
 const onCardToggle = document.querySelector("#voice-on-card");
@@ -394,19 +429,23 @@ document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-o
       onFlip: onFlipToggle.checked
     };
     saveVoiceSettings();
+    updateVoiceNote();
   });
 });
-document.querySelector("#voice-settings-trigger").addEventListener("click", () => voiceDialog.showModal());
-document.querySelector("#voice-dialog-close").addEventListener("click", () => voiceDialog.close());
-document.querySelector("#voice-done").addEventListener("click", () => voiceDialog.close());
 document.querySelector("#listen-button").addEventListener("click", () => speakWord(currentWord().word));
 if (supportsSpeech) {
   refreshVoices();
-  window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
+  window.speechSynthesis.onvoiceschanged = refreshVoices;
 } else {
   document.querySelector("#listen-button").disabled = true;
-  document.querySelector("#voice-note").textContent = "Speech synthesis is not available in this browser.";
+  [voiceSelect, speedSelect, onCardToggle, onFlipToggle].forEach((control) => { control.disabled = true; });
+  updateVoiceNote("Speech playback is not supported by this browser.");
 }
+settingsMenu.addEventListener("click", (event) => event.stopPropagation());
+document.addEventListener("click", () => { settingsMenu.open = false; });
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") settingsMenu.open = false;
+});
 
 document.querySelector(".wordmark").addEventListener("click", (event) => {
   event.preventDefault();

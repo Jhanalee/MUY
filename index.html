@@ -23,26 +23,33 @@
           <button class="nav-link" type="button" data-view="words">My words <span class="nav-count" id="total-count">08</span></button>
         </nav>
         <div class="topbar-tools">
-          <label class="theme-control"><span class="visually-hidden">Theme</span><select id="theme-select" aria-label="Choose a theme"><option value="green">Green</option><option value="red">Red</option><option value="graphite">Grey / black</option></select></label>
-          <button class="voice-settings-trigger" id="voice-settings-trigger" type="button" aria-haspopup="dialog"><span aria-hidden="true">♫</span><span>Voice</span></button>
+          <details class="settings-menu" id="settings-menu">
+            <summary class="settings-trigger" aria-label="Open settings" title="Settings">
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V4a1.7 1.7 0 1 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+            </summary>
+            <div class="settings-panel">
+              <section class="settings-group" aria-labelledby="appearance-title">
+                <h2 id="appearance-title">Appearance</h2>
+                <label class="settings-field" for="theme-select">Theme
+                  <select id="theme-select"><option value="green">Green</option><option value="red">Red</option><option value="graphite">Grey / black</option></select>
+                </label>
+              </section>
+              <section class="settings-group voice-settings" aria-labelledby="voice-title">
+                <h2 id="voice-title">Voice</h2>
+                <label class="settings-field" for="voice-gender">Voice type
+                  <select id="voice-gender"><option value="female">Female</option><option value="male">Male</option></select>
+                </label>
+                <label class="settings-field" for="voice-speed">Speed
+                  <select id="voice-speed"><option value="normal">Normal</option><option value="slow">Slow</option></select>
+                </label>
+                <label class="settings-toggle"><input id="voice-on-card" type="checkbox" /><span>Speak when a card appears</span></label>
+                <label class="settings-toggle"><input id="voice-on-flip" type="checkbox" /><span>Speak when a card flips</span></label>
+                <p class="voice-note" id="voice-note">Uses an English voice available on this device.</p>
+              </section>
+            </div>
+          </details>
         </div>
       </header>
-
-      <dialog class="voice-dialog" id="voice-dialog" aria-labelledby="voice-dialog-title">
-        <div class="voice-dialog-heading"><div><p class="eyebrow">PRONUNCIATION</p><h2 id="voice-dialog-title">Voice settings</h2></div><button class="dialog-close" id="voice-dialog-close" type="button" aria-label="Close voice settings">×</button></div>
-        <label class="voice-select-label" for="voice-gender">Voice
-          <select id="voice-gender"><option value="female">Female</option><option value="male">Male</option></select>
-        </label>
-        <label class="voice-select-label" for="voice-speed">Speed
-          <select id="voice-speed"><option value="normal">Normal</option><option value="slow">Slow</option></select>
-        </label>
-        <div class="voice-toggles">
-          <label class="voice-toggle"><input id="voice-on-card" type="checkbox" /><span>Speak when a new card appears</span></label>
-          <label class="voice-toggle"><input id="voice-on-flip" type="checkbox" /><span>Speak when the card flips</span></label>
-        </div>
-        <p class="voice-note" id="voice-note">Uses English voices available in your browser or device.</p>
-        <button class="voice-done" id="voice-done" type="button">Done</button>
-      </dialog>
 
       <main>
         <section class="view home-view" id="home-view" aria-labelledby="home-title">
@@ -91,7 +98,7 @@
                 <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
               </div>
             </article>
-            <button class="listen-button" id="listen-button" type="button" aria-label="Listen to this word"><span aria-hidden="true">♫</span><span>Listen</span></button>
+            <button class="listen-button" id="listen-button" type="button" aria-label="Listen to this word" title="Listen to this word"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/></svg></button>
           </div>
 
           <div class="answer-area" id="answer-area">
