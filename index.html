@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
+    <script src="sets.js" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -30,7 +31,10 @@
             <p class="session-note" id="session-note">Take a breath. There’s no rush.</p>
           </div>
           <div class="study-meta">
-            <span class="deck-label"><span class="deck-mark">✳</span> SAT essentials <span class="deck-divider">/</span> Set one</span>
+            <div class="study-set-controls">
+              <label class="set-picker"><span class="deck-mark">✳</span><span class="visually-hidden">Choose a study set</span><select class="set-select" id="study-set-select" aria-label="Choose a study set"></select></label>
+              <span class="set-progress" id="study-set-progress"></span>
+            </div>
             <span class="progress-label" id="progress-label">01 <span>/</span> 08</span>
           </div>
           <div class="progress-track" id="progress-track" role="progressbar" aria-label="Study progress" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0"><span id="progress-fill"></span></div>
@@ -40,7 +44,7 @@
               <div class="card-face card-front" id="card-front">
                 <div class="card-topline"><span class="card-index" id="card-index">01 <span>/ 08</span></span><span class="tap-hint"><span>↗</span> Tap to reveal</span></div>
                 <div class="front-wording"><span class="part-of-speech" id="front-pos">ADJECTIVE</span><h2 id="front-word">aberrant</h2><p class="transcription" id="front-phonetic">/əˈberənt/</p></div>
-                <div class="card-footline"><span>SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
+                <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
               </div>
               <div class="card-face card-back" id="card-back" aria-hidden="true">
                 <div class="card-topline"><span class="back-label"><span class="back-dot"></span> THE MEANING</span><span class="back-word" id="back-word">aberrant</span></div>
@@ -49,7 +53,7 @@
                   <span class="detail-label">CLOSEST IN MEANING</span><p class="synonyms" id="back-synonyms"></p>
                   <span class="detail-label">IN CONTEXT</span><p class="example" id="back-example"></p>
                 </div>
-                <div class="card-footline"><span>SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
+                <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
               </div>
             </article>
           </div>
@@ -71,7 +75,7 @@
         </section>
 
         <section class="view words-view" id="words-view" aria-labelledby="words-title" hidden>
-          <div class="words-heading"><div><p class="eyebrow">YOUR PERSONAL COLLECTION</p><h1 id="words-title">My words<span class="heading-period">.</span></h1></div><button class="back-to-study" id="back-to-study" type="button"><span>←</span> Back to study</button></div>
+          <div class="words-heading"><div><p class="eyebrow">YOUR PERSONAL COLLECTION</p><h1 id="words-title">My words<span class="heading-period">.</span></h1></div><div class="collection-actions"><div class="collection-set-controls"><label class="set-picker"><span class="visually-hidden">Choose a vocabulary set</span><select class="set-select" id="words-set-select" aria-label="Choose a vocabulary set"></select></label><span class="set-progress" id="words-set-progress"></span></div><button class="back-to-study" id="back-to-study" type="button"><span>←</span> Back to study</button></div></div>
           <div class="list-tabs" role="tablist" aria-label="Vocabulary categories">
             <button class="list-tab is-active" type="button" role="tab" aria-selected="true" data-category="all">All <span id="all-count">08</span></button>
             <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="remembered"><span class="tab-mark tab-remembered">✓</span> Remembered <span id="remembered-count">00</span></button>

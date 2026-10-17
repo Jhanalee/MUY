@@ -43,8 +43,13 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
 .heading-period { color: var(--lime); }
 .session-note { margin: 0 1px 4px 0; color: var(--muted); font: italic 14px "Newsreader", Georgia, serif; }
 .study-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 42px; color: #babbb2; font-size: 11px; }
-.deck-label { display: flex; align-items: center; gap: 9px; }
+.study-set-controls { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.set-picker { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
 .deck-mark { color: var(--lime); }
+.set-select { max-width: 220px; padding: 5px 22px 5px 0; border: 0; border-bottom: 1px solid #555a4c; border-radius: 0; background: var(--ground); color: var(--ink); font: inherit; cursor: pointer; }
+.set-select:focus-visible { outline-offset: 3px; }
+.set-progress { color: var(--muted); font-size: 9px; white-space: nowrap; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .deck-divider, .progress-label span { color: var(--subtle); }
 .progress-track { height: 2px; margin-top: 12px; overflow: hidden; background: #34372f; }
 .progress-track > span { display: block; width: 0; height: 100%; background: var(--lime); transition: width .3s ease; }
@@ -107,6 +112,9 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
 .restart-button:hover { border-color: #91a866; }
 
 .words-view { min-height: calc(100vh - 140px); }
+.collection-actions { display: flex; align-items: flex-end; gap: 22px; }
+.collection-set-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.collection-set-controls .set-select { max-width: 190px; }
 .back-to-study { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 4px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 11px; cursor: pointer; }
 .back-to-study:hover { color: var(--ink); }
 .list-tabs { display: flex; gap: 26px; margin-top: 39px; border-bottom: 1px solid var(--border); }
@@ -146,6 +154,12 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
   .eyebrow { font-size: 8px; }
   .session-note { max-width: 125px; font-size: 12px; text-align: right; }
   .study-meta { margin-top: 33px; }
+  .study-set-controls { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .set-select { max-width: 180px; font-size: 10px; }
+  .set-progress { font-size: 8px; }
+  .collection-actions { align-items: flex-end; flex-direction: column; gap: 13px; }
+  .collection-set-controls { align-items: flex-end; }
+  .collection-set-controls .set-select { max-width: 165px; }
   .card-scene { height: 274px; margin-top: 23px; }
   .card-face { padding: 20px 20px 17px; }
   .card-front::after { right: 20px; }

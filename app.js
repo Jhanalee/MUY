@@ -1,47 +1,62 @@
-const words = [
-  { word: "aberrant", pos: "adjective", phonetic: "/əˈberənt/", translation: "khác thường, đi lệch khỏi chuẩn mực", synonyms: ["atypical", "unusual", "deviant"], example: "The scientist repeated the trial after noticing an aberrant result." },
-  { word: "candid", pos: "adjective", phonetic: "/ˈkændɪd/", translation: "thẳng thắn, chân thật", synonyms: ["frank", "honest", "outspoken"], example: "Her candid feedback helped the team improve its proposal." },
-  { word: "concede", pos: "verb", phonetic: "/kənˈsiːd/", translation: "thừa nhận; nhượng bộ", synonyms: ["admit", "acknowledge", "yield"], example: "After reviewing the new evidence, the author had to concede her point." },
-  { word: "diligent", pos: "adjective", phonetic: "/ˈdɪlɪdʒənt/", translation: "siêng năng, cần cù", synonyms: ["assiduous", "industrious", "thorough"], example: "His diligent research uncovered a pattern in the historical records." },
-  { word: "discrepancy", pos: "noun", phonetic: "/dɪˈskrepənsi/", translation: "sự khác biệt, điểm không nhất quán", synonyms: ["inconsistency", "difference", "divergence"], example: "The auditor noticed a discrepancy between the two reports." },
-  { word: "eloquent", pos: "adjective", phonetic: "/ˈeləkwənt/", translation: "hùng hồn, diễn đạt lưu loát", synonyms: ["articulate", "expressive", "persuasive"], example: "Her eloquent speech made a complex issue feel clear." },
-  { word: "mitigate", pos: "verb", phonetic: "/ˈmɪtɪɡeɪt/", translation: "làm giảm nhẹ, xoa dịu", synonyms: ["alleviate", "lessen", "ease"], example: "Planting trees can help mitigate the effects of extreme heat." },
-  { word: "pragmatic", pos: "adjective", phonetic: "/præɡˈmætɪk/", translation: "thực tế, chú trọng tính khả thi", synonyms: ["practical", "sensible", "realistic"], example: "They chose a pragmatic solution that fit the time they had." }
-];
-
-const storageKey = "marginalia-sat-progress-v1";
-const wordByName = new Map(words.map((entry) => [entry.word, entry]));
+const storageKey = "marginalia-sat-progress-v2";
+const legacyStorageKey = "marginalia-sat-progress-v1";
+const activeSetStorageKey = "marginalia-sat-active-set-v1";
+const setsById = new Map(sets.map((set) => [set.id, set]));
 const flashcard = document.querySelector("#flashcard");
 const reviewButton = document.querySelector("#review-button");
 const rememberButton = document.querySelector("#remember-button");
 const studyView = document.querySelector("#study-view");
 const wordsView = document.querySelector("#words-view");
 const progressTrack = document.querySelector("#progress-track");
-let statusByWord = loadProgress();
+let activeSetId = loadActiveSet();
+let statusBySet = loadProgress();
+let statusByWord = statusBySet[activeSetId];
 let currentIndex = 0;
-let studyOrder = words.map((entry) => entry.word);
+let studyOrder = activeSet().cards.map((entry) => entry.word);
 let sessionResults = { review: 0, remembered: 0 };
 let activeCategory = "all";
 
+function activeSet() {
+  return setsById.get(activeSetId);
+}
+
+function loadActiveSet() {
+  try {
+    const savedSetId = localStorage.getItem(activeSetStorageKey);
+    return setsById.has(savedSetId) ? savedSetId : sets[0].id;
+  } catch {
+    return sets[0].id;
+  }
+}
+
 function loadProgress() {
   try {
-    const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
-    return Object.fromEntries(Object.entries(saved).filter(([word, status]) => wordByName.has(word) && ["review", "remembered"].includes(status)));
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+    if (saved && typeof saved === "object") {
+      return Object.fromEntries(sets.map((set) => {
+        const wordsInSet = new Set(set.cards.map((entry) => entry.word));
+        const statuses = saved[set.id] && typeof saved[set.id] === "object" ? saved[set.id] : {};
+        return [set.id, Object.fromEntries(Object.entries(statuses).filter(([word, status]) => wordsInSet.has(word) && ["review", "remembered"].includes(status)))];
+      }));
+    }
+    const legacy = JSON.parse(localStorage.getItem(legacyStorageKey) || "{}");
+    const firstSetWords = new Set(sets[0].cards.map((entry) => entry.word));
+    return { [sets[0].id]: Object.fromEntries(Object.entries(legacy).filter(([word, status]) => firstSetWords.has(word) && ["review", "remembered"].includes(status))) };
   } catch {
-    return {};
+    return Object.fromEntries(sets.map((set) => [set.id, {}]));
   }
 }
 
 function saveProgress() {
   try {
-    localStorage.setItem(storageKey, JSON.stringify(statusByWord));
+    localStorage.setItem(storageKey, JSON.stringify(statusBySet));
   } catch {
     // Keep the current session usable when storage is unavailable.
   }
 }
 
 function currentWord() {
-  return wordByName.get(studyOrder[currentIndex]);
+  return activeSet().cards.find((entry) => entry.word === studyOrder[currentIndex]);
 }
 
 function formatCount(count) {
@@ -72,6 +87,7 @@ function renderCard() {
   document.querySelector("#front-phonetic").textContent = entry.phonetic;
   document.querySelector("#back-word").textContent = entry.word;
   document.querySelector("#back-translation").textContent = entry.translation;
+  document.querySelectorAll(".card-set-name").forEach((label) => { label.textContent = activeSet().name.toUpperCase(); });
   document.querySelector("#back-synonyms").replaceChildren(...entry.synonyms.flatMap((synonym, index) => {
     const nodes = [document.createTextNode(synonym)];
     if (index < entry.synonyms.length - 1) {
@@ -89,6 +105,7 @@ function renderCard() {
   document.querySelector("#review-tally").textContent = String(sessionResults.review);
   document.querySelector("#remember-tally").textContent = String(sessionResults.remembered);
   document.querySelector("#session-note").textContent = currentIndex === 0 ? "Take a breath. There’s no rush." : "One small step at a time.";
+  renderSetProgress();
   setCardFace(false);
 }
 
@@ -96,6 +113,7 @@ function gradeCard(status) {
   statusByWord[currentWord().word] = status;
   sessionResults[status] += 1;
   saveProgress();
+  renderSetProgress();
   currentIndex += 1;
   if (currentIndex >= studyOrder.length) {
     showCompletion();
@@ -118,7 +136,7 @@ function showCompletion() {
 function startStudy() {
   currentIndex = 0;
   sessionResults = { review: 0, remembered: 0 };
-  studyOrder = words.map((entry) => entry.word);
+  studyOrder = activeSet().cards.map((entry) => entry.word);
   document.querySelector("#completion-panel").hidden = true;
   document.querySelector("#card-scene").hidden = false;
   document.querySelector("#answer-area").hidden = false;
@@ -126,12 +144,14 @@ function startStudy() {
 }
 
 function renderWords() {
+  const words = activeSet().cards;
   const rememberedCount = Object.values(statusByWord).filter((status) => status === "remembered").length;
   const reviewCount = Object.values(statusByWord).filter((status) => status === "review").length;
   document.querySelector("#total-count").textContent = formatCount(words.length);
   document.querySelector("#all-count").textContent = formatCount(words.length);
   document.querySelector("#remembered-count").textContent = formatCount(rememberedCount);
   document.querySelector("#review-count").textContent = formatCount(reviewCount);
+  renderSetProgress();
   const list = document.querySelector("#word-list");
   list.replaceChildren();
   const entries = activeCategory === "all" ? words : words.filter((entry) => statusByWord[entry.word] === activeCategory);
@@ -164,6 +184,45 @@ function renderWords() {
   });
 }
 
+function renderSetProgress() {
+  const selectors = [document.querySelector("#study-set-select"), document.querySelector("#words-set-select")];
+  sets.forEach((set) => {
+    const statuses = statusBySet[set.id] || {};
+    const rememberedCount = Object.values(statuses).filter((status) => status === "remembered").length;
+    const optionLabel = `${set.name} (${rememberedCount}/${set.cards.length})`;
+    selectors.forEach((select) => {
+      const option = select.querySelector(`option[value="${set.id}"]`);
+      if (option) option.textContent = optionLabel;
+    });
+  });
+  selectors.forEach((select) => { select.value = activeSetId; });
+  const statuses = statusBySet[activeSetId] || {};
+  const rememberedCount = Object.values(statuses).filter((status) => status === "remembered").length;
+  const reviewCount = Object.values(statuses).filter((status) => status === "review").length;
+  const summary = `${rememberedCount} of ${activeSet().cards.length} remembered · ${reviewCount} to review`;
+  document.querySelector("#study-set-progress").textContent = summary;
+  document.querySelector("#words-set-progress").textContent = summary;
+}
+
+function changeSet(setId) {
+  if (!setsById.has(setId) || setId === activeSetId) return;
+  activeSetId = setId;
+  statusByWord = statusBySet[activeSetId] || (statusBySet[activeSetId] = {});
+  try {
+    localStorage.setItem(activeSetStorageKey, activeSetId);
+  } catch {
+    // Keep the current session usable when storage is unavailable.
+  }
+  activeCategory = "all";
+  document.querySelectorAll(".list-tab").forEach((tab) => {
+    const isActive = tab.dataset.category === "all";
+    tab.classList.toggle("is-active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+  });
+  startStudy();
+  renderWords();
+}
+
 function setView(view) {
   const isStudy = view === "study";
   studyView.hidden = !isStudy;
@@ -187,6 +246,15 @@ flashcard.addEventListener("keydown", (event) => {
 reviewButton.addEventListener("click", () => gradeCard("review"));
 rememberButton.addEventListener("click", () => gradeCard("remembered"));
 document.querySelector("#restart-button").addEventListener("click", startStudy);
+document.querySelectorAll(".set-select").forEach((select) => {
+  sets.forEach((set) => {
+    const option = document.createElement("option");
+    option.value = set.id;
+    option.textContent = set.name;
+    select.append(option);
+  });
+  select.addEventListener("change", () => changeSet(select.value));
+});
 document.querySelectorAll(".nav-link").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 document.querySelector("#back-to-study").addEventListener("click", () => setView("study"));
 document.querySelectorAll(".list-tab").forEach((button) => button.addEventListener("click", () => {
@@ -201,6 +269,7 @@ document.querySelectorAll(".list-tab").forEach((button) => button.addEventListen
 document.querySelector("#reset-progress").addEventListener("click", () => {
   if (!Object.keys(statusByWord).length) return;
   statusByWord = {};
+  statusBySet[activeSetId] = statusByWord;
   sessionResults = { review: 0, remembered: 0 };
   saveProgress();
   renderCard();
