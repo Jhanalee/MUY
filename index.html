@@ -22,8 +22,27 @@
           <button class="nav-link" type="button" data-view="study">Study</button>
           <button class="nav-link" type="button" data-view="words">My words <span class="nav-count" id="total-count">08</span></button>
         </nav>
-        <div class="topbar-note"><span class="status-dot"></span> SAT vocabulary</div>
+        <div class="topbar-tools">
+          <label class="theme-control"><span class="visually-hidden">Theme</span><select id="theme-select" aria-label="Choose a theme"><option value="green">Green</option><option value="red">Red</option><option value="graphite">Grey / black</option></select></label>
+          <button class="voice-settings-trigger" id="voice-settings-trigger" type="button" aria-haspopup="dialog"><span aria-hidden="true">♫</span><span>Voice</span></button>
+        </div>
       </header>
+
+      <dialog class="voice-dialog" id="voice-dialog" aria-labelledby="voice-dialog-title">
+        <div class="voice-dialog-heading"><div><p class="eyebrow">PRONUNCIATION</p><h2 id="voice-dialog-title">Voice settings</h2></div><button class="dialog-close" id="voice-dialog-close" type="button" aria-label="Close voice settings">×</button></div>
+        <label class="voice-select-label" for="voice-gender">Voice
+          <select id="voice-gender"><option value="female">Female</option><option value="male">Male</option></select>
+        </label>
+        <label class="voice-select-label" for="voice-speed">Speed
+          <select id="voice-speed"><option value="normal">Normal</option><option value="slow">Slow</option></select>
+        </label>
+        <div class="voice-toggles">
+          <label class="voice-toggle"><input id="voice-on-card" type="checkbox" /><span>Speak when a new card appears</span></label>
+          <label class="voice-toggle"><input id="voice-on-flip" type="checkbox" /><span>Speak when the card flips</span></label>
+        </div>
+        <p class="voice-note" id="voice-note">Uses English voices available in your browser or device.</p>
+        <button class="voice-done" id="voice-done" type="button">Done</button>
+      </dialog>
 
       <main>
         <section class="view home-view" id="home-view" aria-labelledby="home-title">
@@ -72,6 +91,7 @@
                 <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
               </div>
             </article>
+            <button class="listen-button" id="listen-button" type="button" aria-label="Listen to this word"><span aria-hidden="true">♫</span><span>Listen</span></button>
           </div>
 
           <div class="answer-area" id="answer-area">

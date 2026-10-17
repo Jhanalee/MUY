@@ -9,6 +9,9 @@ const homeView = document.querySelector("#home-view");
 const studyView = document.querySelector("#study-view");
 const wordsView = document.querySelector("#words-view");
 const progressTrack = document.querySelector("#progress-track");
+const themeStorageKey = "sat-vocab-theme-v1";
+const voiceSettingsStorageKey = "sat-vocab-voice-settings-v1";
+const supportsSpeech = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 let activeSetId = loadActiveSet();
 let statusBySet = loadProgress();
 let statusByWord = statusBySet[activeSetId];
@@ -16,6 +19,8 @@ let currentIndex = 0;
 let studyOrder = activeSet().cards.map((entry) => entry.word);
 let sessionResults = { review: 0, remembered: 0 };
 let activeCategory = "all";
+let voiceSettings = loadVoiceSettings();
+let availableVoices = [];
 
 function activeSet() {
   return setsById.get(activeSetId);
@@ -28,6 +33,77 @@ function loadActiveSet() {
   } catch {
     return sets[0].id;
   }
+}
+
+function loadVoiceSettings() {
+  const defaults = { gender: "female", speed: "normal", onCard: false, onFlip: false };
+  try {
+    const saved = JSON.parse(localStorage.getItem(voiceSettingsStorageKey) || "null");
+    if (!saved || typeof saved !== "object") return defaults;
+    return {
+      gender: ["female", "male"].includes(saved.gender) ? saved.gender : defaults.gender,
+      speed: ["normal", "slow"].includes(saved.speed) ? saved.speed : defaults.speed,
+      onCard: saved.onCard === true,
+      onFlip: saved.onFlip === true
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function saveVoiceSettings() {
+  try {
+    localStorage.setItem(voiceSettingsStorageKey, JSON.stringify(voiceSettings));
+  } catch {
+    // Voice preferences still apply for the current session.
+  }
+}
+
+function applyTheme(theme) {
+  const selectedTheme = ["green", "red", "graphite"].includes(theme) ? theme : "green";
+  document.documentElement.dataset.theme = selectedTheme;
+  document.querySelector("#theme-select").value = selectedTheme;
+  try {
+    localStorage.setItem(themeStorageKey, selectedTheme);
+  } catch {
+    // Keep the selected theme for the current session.
+  }
+}
+
+function loadTheme() {
+  try {
+    return localStorage.getItem(themeStorageKey) || "green";
+  } catch {
+    return "green";
+  }
+}
+
+function refreshVoices() {
+  if (supportsSpeech) availableVoices = window.speechSynthesis.getVoices();
+}
+
+function preferredVoice() {
+  const englishVoices = availableVoices.filter((voice) => voice.lang.toLowerCase().startsWith("en"));
+  const voiceNamePatterns = voiceSettings.gender === "female"
+    ? /\b(?:female|woman|zira|samantha|victoria|karen|moira|tessa|susan|aria|jenny|linda|amy|allison|ava)\b/i
+    : /\b(?:male|man|david|alex|daniel|james|guy|ryan|fred|tom|george|mark|aaron|arthur|oliver)\b/i;
+  return englishVoices.find((voice) => voiceNamePatterns.test(voice.name)) || englishVoices[0] || null;
+}
+
+function speakWord(word) {
+  if (!supportsSpeech) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(word);
+  const voice = preferredVoice();
+  if (voice) {
+    utterance.voice = voice;
+    utterance.lang = voice.lang;
+  } else {
+    utterance.lang = "en-US";
+  }
+  utterance.rate = voiceSettings.speed === "slow" ? 0.72 : 1;
+  utterance.pitch = voiceSettings.gender === "female" ? 1.12 : 0.88;
+  window.speechSynthesis.speak(utterance);
 }
 
 function loadProgress() {
@@ -77,6 +153,7 @@ function setCardFace(isFlipped) {
   document.querySelector("#card-front").setAttribute("aria-hidden", String(isFlipped));
   document.querySelector("#card-back").setAttribute("aria-hidden", String(!isFlipped));
   flashcard.setAttribute("aria-label", isFlipped ? "Definition revealed. Press Enter or Space to see the word again." : "Vocabulary card. Press Enter or Space to reveal the definition.");
+  if (isFlipped && voiceSettings.onFlip && !studyView.hidden) speakWord(currentWord().word);
 }
 
 function renderCard() {
@@ -108,6 +185,7 @@ function renderCard() {
   document.querySelector("#session-note").textContent = currentIndex === 0 ? "Take a breath. There’s no rush." : "One small step at a time.";
   renderSetProgress();
   setCardFace(false);
+  if (voiceSettings.onCard && !studyView.hidden) speakWord(entry.word);
 }
 
 function gradeCard(status) {
@@ -290,6 +368,44 @@ function setView(view) {
   });
   if (isHome) renderHome();
   if (view === "words") renderWords();
+  if (isStudy && voiceSettings.onCard && !document.querySelector("#card-scene").hidden) {
+    const entry = currentWord();
+    if (entry) speakWord(entry.word);
+  }
+}
+
+const voiceDialog = document.querySelector("#voice-dialog");
+const voiceSelect = document.querySelector("#voice-gender");
+const speedSelect = document.querySelector("#voice-speed");
+const onCardToggle = document.querySelector("#voice-on-card");
+const onFlipToggle = document.querySelector("#voice-on-flip");
+document.querySelector("#theme-select").addEventListener("change", (event) => applyTheme(event.target.value));
+applyTheme(loadTheme());
+voiceSelect.value = voiceSettings.gender;
+speedSelect.value = voiceSettings.speed;
+onCardToggle.checked = voiceSettings.onCard;
+onFlipToggle.checked = voiceSettings.onFlip;
+document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-on-flip").forEach((control) => {
+  control.addEventListener("change", () => {
+    voiceSettings = {
+      gender: voiceSelect.value,
+      speed: speedSelect.value,
+      onCard: onCardToggle.checked,
+      onFlip: onFlipToggle.checked
+    };
+    saveVoiceSettings();
+  });
+});
+document.querySelector("#voice-settings-trigger").addEventListener("click", () => voiceDialog.showModal());
+document.querySelector("#voice-dialog-close").addEventListener("click", () => voiceDialog.close());
+document.querySelector("#voice-done").addEventListener("click", () => voiceDialog.close());
+document.querySelector("#listen-button").addEventListener("click", () => speakWord(currentWord().word));
+if (supportsSpeech) {
+  refreshVoices();
+  window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
+} else {
+  document.querySelector("#listen-button").disabled = true;
+  document.querySelector("#voice-note").textContent = "Speech synthesis is not available in this browser.";
 }
 
 document.querySelector(".wordmark").addEventListener("click", (event) => {
