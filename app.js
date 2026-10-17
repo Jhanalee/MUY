@@ -25,7 +25,6 @@ const storageKey = "marginalia-sat-progress-v2";
 const legacyStorageKey = "marginalia-sat-progress-v1";
 const activeSetStorageKey = "marginalia-sat-active-set-v1";
 
-// Bảo vệ tránh crash khi sets.js tải chậm
 const allSets = (typeof sets !== "undefined" && Array.isArray(sets)) ? sets : [];
 let setsById = new Map(allSets.map((set) => [set.id, set]));
 
@@ -204,11 +203,30 @@ function formatCount(count) {
 
 function highlightWord(sentence, word) {
   if (!sentence) return [document.createTextNode("")];
-  const position = sentence.toLowerCase().indexOf((word || "").toLowerCase());
+  const cleanWord = (word || "").trim();
+  const cleanWordStem = cleanWord.length > 4 ? cleanWord.slice(0, 4) : cleanWord;
+  
+  let position = sentence.toLowerCase().indexOf(cleanWord.toLowerCase());
+  let matchLen = cleanWord.length;
+  
+  // Tìm từ gốc nếu từ trong câu có chia thì (ví dụ abated -> abate)
+  if (position === -1 && cleanWordStem.length >= 3) {
+    position = sentence.toLowerCase().indexOf(cleanWordStem.toLowerCase());
+    if (position !== -1) {
+      const spaceIdx = sentence.indexOf(" ", position);
+      matchLen = spaceIdx === -1 ? sentence.length - position : spaceIdx - position;
+      matchLen = sentence.slice(position, position + matchLen).replace(/[^a-zA-Z]/g, "").length;
+    }
+  }
+
   if (position === -1) return [document.createTextNode(sentence)];
   const highlighted = document.createElement("em");
-  highlighted.textContent = sentence.slice(position, position + word.length);
-  return [document.createTextNode(sentence.slice(0, position)), highlighted, document.createTextNode(sentence.slice(position + word.length))];
+  highlighted.textContent = sentence.slice(position, position + matchLen);
+  return [
+    document.createTextNode(sentence.slice(0, position)),
+    highlighted,
+    document.createTextNode(sentence.slice(position + matchLen))
+  ];
 }
 
 function setCardFace(isFlipped) {
@@ -228,24 +246,45 @@ function renderCard() {
   if (!entry) return;
   const cardIndex = document.querySelector("#card-index");
   if (cardIndex) cardIndex.innerHTML = `${formatCount(currentIndex + 1)} <span>/ ${formatCount(studyOrder.length)}</span>`;
-  document.querySelector("#front-pos").textContent = (entry.pos || "word").toUpperCase();
-  document.querySelector("#front-word").textContent = entry.word;
-  document.querySelector("#front-phonetic").textContent = entry.phonetic || "";
-  document.querySelector("#back-word").textContent = entry.word;
-  document.querySelector("#back-translation").textContent = entry.translation || "";
-  document.querySelectorAll(".card-set-name").forEach((label) => { label.textContent = activeSet().name.toUpperCase(); });
   
-  const syns = entry.synonyms || [];
-  document.querySelector("#back-synonyms")?.replaceChildren(...syns.flatMap((synonym, index) => {
-    const nodes = [document.createTextNode(synonym)];
-    if (index < syns.length - 1) {
-      const separator = document.createElement("span");
-      separator.textContent = " · ";
-      nodes.push(separator);
-    }
-    return nodes;
-  }));
-  document.querySelector("#back-example")?.replaceChildren(...highlightWord(entry.example || "", entry.word));
+  const frontPos = document.querySelector("#front-pos");
+  if (frontPos) frontPos.textContent = (entry.pos || "WORD").toUpperCase();
+  
+  const frontWord = document.querySelector("#front-word");
+  if (frontWord) frontWord.textContent = entry.word;
+  
+  const frontPhonetic = document.querySelector("#front-phonetic");
+  if (frontPhonetic) frontPhonetic.textContent = entry.phonetic || "";
+  
+  const backWord = document.querySelector("#back-word");
+  if (backWord) backWord.textContent = entry.word;
+  
+  const backTranslation = document.querySelector("#back-translation");
+  if (backTranslation) backTranslation.textContent = entry.translation || "";
+  
+  document.querySelectorAll(".card-set-name").forEach((label) => { 
+    label.textContent = activeSet().name.toUpperCase(); 
+  });
+  
+  const syns = Array.isArray(entry.synonyms) ? entry.synonyms : [];
+  const backSynonyms = document.querySelector("#back-synonyms");
+  if (backSynonyms) {
+    backSynonyms.replaceChildren(...syns.flatMap((synonym, index) => {
+      const nodes = [document.createTextNode(synonym)];
+      if (index < syns.length - 1) {
+        const separator = document.createElement("span");
+        separator.textContent = " · ";
+        nodes.push(separator);
+      }
+      return nodes;
+    }));
+  }
+  
+  const backExample = document.querySelector("#back-example");
+  if (backExample) {
+    backExample.replaceChildren(...highlightWord(entry.example || "", entry.word));
+  }
+  
   const progressLabel = document.querySelector("#progress-label");
   if (progressLabel) progressLabel.innerHTML = `${formatCount(currentIndex + 1)} <span>/</span> ${formatCount(studyOrder.length)}`;
   
@@ -482,7 +521,7 @@ document.querySelector("#btn-cancel-create")?.addEventListener("click", () => {
   if (customSetSection) customSetSection.hidden = true;
 });
 
-// Phân tích văn bản nhập đầy đủ: từ, loại từ, phiên âm, ví dụ, đồng nghĩa
+// --- BỘ TÁCH VĂN BẢN THÔNG MINH CHO CẢ ĐỊNH DẠNG TAB LẪN GẠCH ĐỨNG ---
 function parseRawVocabulary(text) {
   const lines = text.trim().split("\n");
   const cards = [];
@@ -498,14 +537,41 @@ function parseRawVocabulary(text) {
     let synonyms = [];
     let example = "";
 
-    // 1. Trường hợp định dạng đầy đủ chuẩn kiki.txt (chứa dấu Tab hoặc dấu gạch đứng '|')
-    if (line.includes("\t") || line.includes("|")) {
-      const parts = line.split(line.includes("\t") ? "\t" : "|").map(p => p.trim()).filter(Boolean);
-      word = parts[0];
+    // 1. Phân tách dòng thành các phần dựa trên dấu Tab hoặc dấu gạch đứng '|'
+    let parts = [];
+    if (line.includes("\t")) {
+      const tabSplits = line.split("\t");
+      const firstWord = tabSplits[0].trim();
+      const rest = tabSplits.slice(1).join("\t");
+      parts = [firstWord, ...rest.split("|").map(p => p.trim())];
+    } else if (line.includes("|")) {
+      const pipeSplits = line.split("|").map(p => p.trim());
+      // Nếu phần đầu có chứa cả từ và nghĩa bị dính cách, tách từ đầu tiên làm word
+      const firstPart = pipeSplits[0];
+      const spaceIdx = firstPart.indexOf(" ");
+      if (spaceIdx !== -1) {
+        word = firstPart.slice(0, spaceIdx).trim();
+        const def = firstPart.slice(spaceIdx).trim();
+        parts = [word, def, ...pipeSplits.slice(1)];
+      } else {
+        parts = pipeSplits;
+      }
+    } else {
+      // Trường hợp nhập ngắn gọn Từ - Nghĩa
+      const separator = line.includes(" - ") ? " - " : "-";
+      const splits = line.split(separator);
+      if (splits.length >= 2) {
+        word = splits[0].trim();
+        translation = splits.slice(1).join(separator).trim();
+      }
+    }
 
-      // Đọc phần nghĩa và loại từ
+    if (parts.length > 0) {
+      word = parts[0].trim();
+
+      // Phần nghĩa và loại từ
       if (parts[1]) {
-        let defText = parts[1];
+        let defText = parts[1].trim();
         const posMatch = defText.match(/\((v\.\vert{}n\.\vert{}adj\.\vert{}adv\.\vert{}noun\vert{}verb\vert{}adjective\vert{}adverb)\)/i);
         if (posMatch) {
           const rawPos = posMatch[1].toLowerCase().replace(".", "");
@@ -515,26 +581,17 @@ function parseRawVocabulary(text) {
         translation = defText;
       }
 
-      // Đọc các phần tiếp theo: phiên âm, ví dụ, từ đồng nghĩa
+      // Xử lý các khúc còn lại: phiên âm, ví dụ, từ đồng nghĩa
       for (let i = 2; i < parts.length; i++) {
-        const chunk = parts[i];
+        const chunk = parts[i].trim();
         if (chunk.startsWith("/") && chunk.endsWith("/")) {
           phonetic = chunk;
         } else if (chunk.toLowerCase().startsWith("vd:") || chunk.toLowerCase().startsWith("ex:")) {
           example = chunk.replace(/^(vd:|ex:)\s*/i, "").trim();
         } else if (chunk.toLowerCase().includes("đồng nghĩa:") || chunk.toLowerCase().startsWith("synonyms:")) {
-          const synString = chunk.replace(/.*(đồng nghĩa:|synonyms:)\s*/i, "").trim();
-          synonyms = synString.split(",").map(s => s.trim()).filter(Boolean);
+          const synText = chunk.replace(/.*(đồng nghĩa:|synonyms:)\s*/i, "").trim();
+          synonyms = synText.split(",").map(s => s.trim()).filter(Boolean);
         }
-      }
-    } 
-    // 2. Trường hợp định dạng ngắn gọn: Từ - Nghĩa
-    else {
-      const separator = line.includes(" - ") ? " - " : "-";
-      const parts = line.split(separator);
-      if (parts.length >= 2) {
-        word = parts[0].trim();
-        translation = parts.slice(1).join(separator).trim();
       }
     }
 
@@ -545,7 +602,7 @@ function parseRawVocabulary(text) {
         phonetic: phonetic,
         translation: translation,
         synonyms: synonyms,
-        example: example || `Example sentence for ${word}.`
+        example: example || `The word ${word} is used in this sentence.`
       });
     }
   });
@@ -744,4 +801,4 @@ updateSelectDropdowns();
 renderCard();
 renderWords();
 renderHome();
-syncOnlineDecks();
+syncOnlineDecks();git add app.js
