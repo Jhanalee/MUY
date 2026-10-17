@@ -61,8 +61,6 @@ function setCardFace(isFlipped) {
   document.querySelector("#card-front").setAttribute("aria-hidden", String(isFlipped));
   document.querySelector("#card-back").setAttribute("aria-hidden", String(!isFlipped));
   flashcard.setAttribute("aria-label", isFlipped ? "Definition revealed. Press Enter or Space to see the word again." : "Vocabulary card. Press Enter or Space to reveal the definition.");
-  reviewButton.disabled = !isFlipped;
-  rememberButton.disabled = !isFlipped;
 }
 
 function renderCard() {
@@ -95,7 +93,6 @@ function renderCard() {
 }
 
 function gradeCard(status) {
-  if (!flashcard.classList.contains("is-flipped")) return;
   statusByWord[currentWord().word] = status;
   sessionResults[status] += 1;
   saveProgress();
@@ -217,8 +214,8 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     setCardFace(!flashcard.classList.contains("is-flipped"));
   }
-  if (flashcard.classList.contains("is-flipped") && event.key === "ArrowLeft") gradeCard("review");
-  if (flashcard.classList.contains("is-flipped") && event.key === "ArrowRight") gradeCard("remembered");
+  if (event.key === "ArrowLeft") gradeCard("review");
+  if (event.key === "ArrowRight") gradeCard("remembered");
 });
 
 renderCard();

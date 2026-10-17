@@ -80,7 +80,6 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
 .example em { color: var(--lime); font-style: normal; }
 
 .answer-area { width: min(100%, 560px); margin: 20px auto 0; text-align: center; }
-.answer-prompt { margin: 0 0 11px; color: #b2b3aa; font-size: 11px; }
 .answer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .answer-button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 45px; padding: 0 18px; border: 1px solid var(--border); border-radius: 2px; font-size: 11px; cursor: pointer; transition: border-color .18s, background .18s, opacity .18s, transform .18s; }
 .answer-button:disabled { opacity: .48; cursor: not-allowed; }
