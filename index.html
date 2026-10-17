@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#171916" />
     <meta name="description" content="A focused space to study SAT vocabulary." />
-    <title>Marginalia — SAT vocabulary</title>
+    <title>SAT Vocabulary Flashcards</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
@@ -16,16 +16,32 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="wordmark" href="#study" aria-label="Marginalia home"><span class="wordmark-icon">m.</span><span>marginalia</span></a>
+        <a class="wordmark" href="#home" aria-label="SAT vocabulary home"><span class="wordmark-icon">A–Z</span><span>SAT vocab</span></a>
         <nav class="main-nav" aria-label="Main navigation">
-          <button class="nav-link is-active" type="button" data-view="study" aria-current="page">Study</button>
+          <button class="nav-link is-active" type="button" data-view="home" aria-current="page">Sets</button>
+          <button class="nav-link" type="button" data-view="study">Study</button>
           <button class="nav-link" type="button" data-view="words">My words <span class="nav-count" id="total-count">08</span></button>
         </nav>
         <div class="topbar-note"><span class="status-dot"></span> SAT vocabulary</div>
       </header>
 
       <main>
-        <section class="view" id="study-view" aria-labelledby="study-title">
+        <section class="view home-view" id="home-view" aria-labelledby="home-title">
+          <div class="home-heading">
+            <div><p class="eyebrow">SAT VOCABULARY</p><h1 id="home-title">Choose a set.</h1></div>
+            <p class="home-intro">Pick a collection, preview its words, then study at your pace.</p>
+          </div>
+          <div class="home-set-grid" id="home-set-grid" aria-label="Vocabulary sets"></div>
+          <section class="set-preview" aria-labelledby="preview-title">
+            <div class="preview-heading">
+              <div><p class="eyebrow">WORD PREVIEW <span class="preview-divider">/</span> <span id="preview-count">08 WORDS</span></p><h2 id="preview-title"></h2></div>
+              <button class="preview-start restart-button" id="preview-start" type="button"><span aria-hidden="true">→</span> Study this set</button>
+            </div>
+            <ol class="preview-list" id="preview-list"></ol>
+          </section>
+        </section>
+
+        <section class="view" id="study-view" aria-labelledby="study-title" hidden>
           <div class="study-heading">
             <div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1 id="study-title">A word at a time.</h1></div>
             <p class="session-note" id="session-note">Take a breath. There’s no rush.</p>

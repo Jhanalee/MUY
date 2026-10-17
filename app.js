@@ -5,6 +5,7 @@ const setsById = new Map(sets.map((set) => [set.id, set]));
 const flashcard = document.querySelector("#flashcard");
 const reviewButton = document.querySelector("#review-button");
 const rememberButton = document.querySelector("#remember-button");
+const homeView = document.querySelector("#home-view");
 const studyView = document.querySelector("#study-view");
 const wordsView = document.querySelector("#words-view");
 const progressTrack = document.querySelector("#progress-track");
@@ -184,6 +185,57 @@ function renderWords() {
   });
 }
 
+function renderHome() {
+  const setGrid = document.querySelector("#home-set-grid");
+  setGrid.replaceChildren();
+  sets.forEach((set, index) => {
+    const statuses = statusBySet[set.id] || {};
+    const rememberedCount = Object.values(statuses).filter((status) => status === "remembered").length;
+    const option = document.createElement("button");
+    option.className = `home-set-option${set.id === activeSetId ? " is-selected" : ""}`;
+    option.type = "button";
+    option.setAttribute("aria-pressed", String(set.id === activeSetId));
+
+    const label = document.createElement("span");
+    label.className = "home-set-label";
+    label.textContent = `SET ${formatCount(index + 1)} · ${formatCount(set.cards.length)} WORDS`;
+    const name = document.createElement("span");
+    name.className = "home-set-name";
+    name.textContent = set.name;
+    const progress = document.createElement("span");
+    progress.className = "home-set-progress";
+    progress.textContent = `${rememberedCount} / ${set.cards.length} remembered`;
+    const arrow = document.createElement("span");
+    arrow.className = "home-set-arrow";
+    arrow.setAttribute("aria-hidden", "true");
+    arrow.textContent = "↗";
+    option.append(label, name, progress, arrow);
+    option.addEventListener("click", () => changeSet(set.id));
+    setGrid.append(option);
+  });
+
+  const selectedSet = activeSet();
+  document.querySelector("#preview-title").textContent = selectedSet.name;
+  document.querySelector("#preview-count").textContent = `${formatCount(selectedSet.cards.length)} WORDS`;
+  const previewList = document.querySelector("#preview-list");
+  previewList.replaceChildren();
+  selectedSet.cards.forEach((entry) => {
+    const row = document.createElement("li");
+    row.className = "preview-word-row";
+    const word = document.createElement("span");
+    word.className = "preview-word";
+    word.textContent = entry.word;
+    const pos = document.createElement("span");
+    pos.className = "preview-pos";
+    pos.textContent = entry.pos;
+    const translation = document.createElement("span");
+    translation.className = "preview-translation";
+    translation.textContent = entry.translation;
+    row.append(word, pos, translation);
+    previewList.append(row);
+  });
+}
+
 function renderSetProgress() {
   const selectors = [document.querySelector("#study-set-select"), document.querySelector("#words-set-select")];
   sets.forEach((set) => {
@@ -221,21 +273,29 @@ function changeSet(setId) {
   });
   startStudy();
   renderWords();
+  renderHome();
 }
 
 function setView(view) {
+  const isHome = view === "home";
   const isStudy = view === "study";
+  homeView.hidden = !isHome;
   studyView.hidden = !isStudy;
-  wordsView.hidden = isStudy;
+  wordsView.hidden = isHome || isStudy;
   document.querySelectorAll(".nav-link").forEach((button) => {
     const isActive = button.dataset.view === view;
     button.classList.toggle("is-active", isActive);
     if (isActive) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   });
-  if (!isStudy) renderWords();
+  if (isHome) renderHome();
+  if (view === "words") renderWords();
 }
 
+document.querySelector(".wordmark").addEventListener("click", (event) => {
+  event.preventDefault();
+  setView("home");
+});
 flashcard.addEventListener("click", () => setCardFace(!flashcard.classList.contains("is-flipped")));
 flashcard.addEventListener("keydown", (event) => {
   if (event.key === "Enter" || event.key === " ") {
@@ -246,6 +306,7 @@ flashcard.addEventListener("keydown", (event) => {
 reviewButton.addEventListener("click", () => gradeCard("review"));
 rememberButton.addEventListener("click", () => gradeCard("remembered"));
 document.querySelector("#restart-button").addEventListener("click", startStudy);
+document.querySelector("#preview-start").addEventListener("click", () => setView("study"));
 document.querySelectorAll(".set-select").forEach((select) => {
   sets.forEach((set) => {
     const option = document.createElement("option");
@@ -273,6 +334,7 @@ document.querySelector("#reset-progress").addEventListener("click", () => {
   sessionResults = { review: 0, remembered: 0 };
   saveProgress();
   renderCard();
+  renderHome();
   if (!wordsView.hidden) renderWords();
 });
 document.addEventListener("keydown", (event) => {
@@ -289,3 +351,4 @@ document.addEventListener("keydown", (event) => {
 
 renderCard();
 renderWords();
+renderHome();
