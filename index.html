@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#171916" />
+    <meta name="description" content="A focused space to study SAT vocabulary." />
+    <title>Marginalia — SAT vocabulary</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="wordmark" href="#study" aria-label="Marginalia home"><span class="wordmark-icon">m.</span><span>marginalia</span></a>
+        <nav class="main-nav" aria-label="Main navigation">
+          <button class="nav-link is-active" type="button" data-view="study" aria-current="page">Study</button>
+          <button class="nav-link" type="button" data-view="words">My words <span class="nav-count" id="total-count">08</span></button>
+        </nav>
+        <div class="topbar-note"><span class="status-dot"></span> SAT vocabulary</div>
+      </header>
+
+      <main>
+        <section class="view" id="study-view" aria-labelledby="study-title">
+          <div class="study-heading">
+            <div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1 id="study-title">A word at a time.</h1></div>
+            <p class="session-note" id="session-note">Take a breath. There’s no rush.</p>
+          </div>
+          <div class="study-meta">
+            <span class="deck-label"><span class="deck-mark">✳</span> SAT essentials <span class="deck-divider">/</span> Set one</span>
+            <span class="progress-label" id="progress-label">01 <span>/</span> 08</span>
+          </div>
+          <div class="progress-track" id="progress-track" role="progressbar" aria-label="Study progress" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0"><span id="progress-fill"></span></div>
+
+          <div class="card-scene" id="card-scene">
+            <article class="flashcard" id="flashcard" tabindex="0" role="button" aria-label="Vocabulary card. Press Enter or Space to reveal the definition.">
+              <div class="card-face card-front" id="card-front">
+                <div class="card-topline"><span class="card-index" id="card-index">01 <span>/ 08</span></span><span class="tap-hint"><span>↗</span> Tap to reveal</span></div>
+                <div class="front-wording"><span class="part-of-speech" id="front-pos">ADJECTIVE</span><h2 id="front-word">aberrant</h2><p class="transcription" id="front-phonetic">/əˈberənt/</p></div>
+                <div class="card-footline"><span>SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
+              </div>
+              <div class="card-face card-back" id="card-back" aria-hidden="true">
+                <div class="card-topline"><span class="back-label"><span class="back-dot"></span> THE MEANING</span><span class="back-word" id="back-word">aberrant</span></div>
+                <div class="back-content">
+                  <p class="translation" id="back-translation"></p><div class="detail-rule"></div>
+                  <span class="detail-label">CLOSEST IN MEANING</span><p class="synonyms" id="back-synonyms"></p>
+                  <span class="detail-label">IN CONTEXT</span><p class="example" id="back-example"></p>
+                </div>
+                <div class="card-footline"><span>SAT ESSENTIALS</span><span class="card-symbol">a—z</span></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="answer-area" id="answer-area">
+            <p class="answer-prompt">Did you remember it?</p>
+            <div class="answer-actions">
+              <button class="answer-button answer-review" id="review-button" type="button" disabled><span class="answer-icon">×</span><span>Not yet</span><kbd>←</kbd></button>
+              <button class="answer-button answer-remember" id="remember-button" type="button" disabled><span class="answer-icon">✓</span><span>Remembered</span><kbd>→</kbd></button>
+            </div>
+            <p class="keyboard-hint">FLIP WITH <kbd>SPACE</kbd></p>
+          </div>
+
+          <section class="completion-panel" id="completion-panel" hidden aria-live="polite">
+            <span class="completion-mark">✳</span><p class="eyebrow">THAT’S THE SET</p>
+            <h2>Nice work showing up.</h2><p class="completion-copy" id="completion-copy"></p>
+            <button class="restart-button" id="restart-button" type="button"><span>↺</span> Study this set again</button>
+          </section>
+          <div class="session-summary" aria-label="This session"><span><span class="summary-mark mark-review">×</span> <span id="review-tally">0</span> to review</span><span class="summary-separator"></span><span><span class="summary-mark mark-remember">✓</span> <span id="remember-tally">0</span> remembered</span></div>
+        </section>
+
+        <section class="view words-view" id="words-view" aria-labelledby="words-title" hidden>
+          <div class="words-heading"><div><p class="eyebrow">YOUR PERSONAL COLLECTION</p><h1 id="words-title">My words<span class="heading-period">.</span></h1></div><button class="back-to-study" id="back-to-study" type="button"><span>←</span> Back to study</button></div>
+          <div class="list-tabs" role="tablist" aria-label="Vocabulary categories">
+            <button class="list-tab is-active" type="button" role="tab" aria-selected="true" data-category="all">All <span id="all-count">08</span></button>
+            <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="remembered"><span class="tab-mark tab-remembered">✓</span> Remembered <span id="remembered-count">00</span></button>
+            <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="review"><span class="tab-mark tab-review">×</span> Review <span id="review-count">00</span></button>
+          </div>
+          <div class="word-list" id="word-list" aria-live="polite"></div>
+          <p class="list-footnote">Your learning progress is saved on this device.</p>
+        </section>
+      </main>
+      <footer class="page-footer"><span>MAKE ROOM FOR NEW WORDS.</span><button class="reset-link" id="reset-progress" type="button">Reset progress</button></footer>
+    </div>
+  </body>
+</html>
