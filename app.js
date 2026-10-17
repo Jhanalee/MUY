@@ -1,7 +1,27 @@
+// --- KẾT NỐI VÀ ĐỒNG BỘ DỮ LIỆU VỚI FIREBASE ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCX_30nYbSoKmyyLBQBjTW_0K1zTUnm6CU",
+  authDomain: "muy-flashcards.firebaseapp.com",
+  projectId: "muy-flashcards",
+  storageBucket: "muy-flashcards.firebasestorage.app",
+  messagingSenderId: "745907745384",
+  appId: "1:745907745384:web:826faa570f76bcfdeec1dd",
+  measurementId: "G-L72QT1NLPH"
+};
+
+let db = null;
+if (typeof firebase !== "undefined") {
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  db = firebase.firestore();
+}
+
 const storageKey = "marginalia-sat-progress-v2";
 const legacyStorageKey = "marginalia-sat-progress-v1";
 const activeSetStorageKey = "marginalia-sat-active-set-v1";
-const setsById = new Map(sets.map((set) => [set.id, set]));
+
+let setsById = new Map(sets.map((set) => [set.id, set]));
 const flashcard = document.querySelector("#flashcard");
 const reviewButton = document.querySelector("#review-button");
 const rememberButton = document.querySelector("#remember-button");
@@ -12,9 +32,10 @@ const progressTrack = document.querySelector("#progress-track");
 const themeStorageKey = "sat-vocab-theme-v1";
 const voiceSettingsStorageKey = "sat-vocab-voice-settings-v1";
 const supportsSpeech = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+
 let activeSetId = loadActiveSet();
 let statusBySet = loadProgress();
-let statusByWord = statusBySet[activeSetId];
+let statusByWord = statusBySet[activeSetId] || (statusBySet[activeSetId] = {});
 let currentIndex = 0;
 let studyOrder = activeSet().cards.map((entry) => entry.word);
 let sessionResults = { review: 0, remembered: 0 };
@@ -23,7 +44,7 @@ let voiceSettings = loadVoiceSettings();
 let availableVoices = [];
 
 function activeSet() {
-  return setsById.get(activeSetId);
+  return setsById.get(activeSetId) || sets[0];
 }
 
 function loadActiveSet() {
@@ -54,9 +75,7 @@ function loadVoiceSettings() {
 function saveVoiceSettings() {
   try {
     localStorage.setItem(voiceSettingsStorageKey, JSON.stringify({ ...voiceSettings, version: 2 }));
-  } catch {
-    // Voice preferences still apply for the current session.
-  }
+  } catch {}
 }
 
 function applyTheme(theme) {
@@ -70,9 +89,7 @@ function applyTheme(theme) {
   }[selectedTheme];
   try {
     localStorage.setItem(themeStorageKey, selectedTheme);
-  } catch {
-    // Keep the selected theme for the current session.
-  }
+  } catch {}
 }
 
 function loadTheme() {
@@ -133,12 +150,10 @@ function speakWord(word) {
   utterance.pitch = voiceNameMatchesGender(voice || { name: "" })
     ? 1
     : voiceSettings.gender === "female" ? 1.18 : 0.82;
-  utterance.onstart = () => updateVoiceNote(voice
-    ? `Speaking with ${voice.name}.`
-    : "Speaking with your device's default English voice.");
+  utterance.onstart = () => updateVoiceNote(voice ? `Speaking with ${voice.name}.` : "Speaking with default English voice.");
   utterance.onerror = (event) => {
     if (event.error !== "canceled" && event.error !== "interrupted") {
-      updateVoiceNote("Playback failed. Check that your device has an English speech voice enabled.");
+      updateVoiceNote("Playback failed. Check English speech voice on device.");
     }
   };
   if (synthesis.paused) synthesis.resume();
@@ -167,13 +182,11 @@ function loadProgress() {
 function saveProgress() {
   try {
     localStorage.setItem(storageKey, JSON.stringify(statusBySet));
-  } catch {
-    // Keep the current session usable when storage is unavailable.
-  }
+  } catch {}
 }
 
 function currentWord() {
-  return activeSet().cards.find((entry) => entry.word === studyOrder[currentIndex]);
+  return activeSet().cards.find((entry) => entry.word === studyOrder[currentIndex]) || activeSet().cards[0];
 }
 
 function formatCount(count) {
@@ -181,7 +194,8 @@ function formatCount(count) {
 }
 
 function highlightWord(sentence, word) {
-  const position = sentence.toLowerCase().indexOf(word.toLowerCase());
+  if (!sentence) return [document.createTextNode("")];
+  const position = sentence.toLowerCase().indexOf((word || "").toLowerCase());
   if (position === -1) return [document.createTextNode(sentence)];
   const highlighted = document.createElement("em");
   highlighted.textContent = sentence.slice(position, position + word.length);
@@ -200,22 +214,24 @@ function renderCard() {
   const entry = currentWord();
   if (!entry) return;
   document.querySelector("#card-index").innerHTML = `${formatCount(currentIndex + 1)} <span>/ ${formatCount(studyOrder.length)}</span>`;
-  document.querySelector("#front-pos").textContent = entry.pos.toUpperCase();
+  document.querySelector("#front-pos").textContent = (entry.pos || "word").toUpperCase();
   document.querySelector("#front-word").textContent = entry.word;
-  document.querySelector("#front-phonetic").textContent = entry.phonetic;
+  document.querySelector("#front-phonetic").textContent = entry.phonetic || "";
   document.querySelector("#back-word").textContent = entry.word;
-  document.querySelector("#back-translation").textContent = entry.translation;
+  document.querySelector("#back-translation").textContent = entry.translation || "";
   document.querySelectorAll(".card-set-name").forEach((label) => { label.textContent = activeSet().name.toUpperCase(); });
-  document.querySelector("#back-synonyms").replaceChildren(...entry.synonyms.flatMap((synonym, index) => {
+  
+  const syns = entry.synonyms || [];
+  document.querySelector("#back-synonyms").replaceChildren(...syns.flatMap((synonym, index) => {
     const nodes = [document.createTextNode(synonym)];
-    if (index < entry.synonyms.length - 1) {
+    if (index < syns.length - 1) {
       const separator = document.createElement("span");
       separator.textContent = " · ";
       nodes.push(separator);
     }
     return nodes;
   }));
-  document.querySelector("#back-example").replaceChildren(...highlightWord(entry.example, entry.word));
+  document.querySelector("#back-example").replaceChildren(...highlightWord(entry.example || "", entry.word));
   document.querySelector("#progress-label").innerHTML = `${formatCount(currentIndex + 1)} <span>/</span> ${formatCount(studyOrder.length)}`;
   progressTrack.setAttribute("aria-valuemax", String(studyOrder.length));
   progressTrack.setAttribute("aria-valuenow", String(currentIndex));
@@ -291,10 +307,10 @@ function renderWords() {
     word.textContent = entry.word;
     const pos = document.createElement("span");
     pos.className = "row-pos";
-    pos.textContent = entry.pos;
+    pos.textContent = entry.pos || "";
     const translation = document.createElement("span");
     translation.className = "row-translation";
-    translation.textContent = entry.translation;
+    translation.textContent = entry.translation || "";
     const statusLabel = document.createElement("span");
     statusLabel.className = `row-status status-${status}`;
     statusLabel.textContent = status === "remembered" ? "✓ Remembered" : status === "review" ? "× Review" : "— New";
@@ -345,12 +361,25 @@ function renderHome() {
     word.textContent = entry.word;
     const pos = document.createElement("span");
     pos.className = "preview-pos";
-    pos.textContent = entry.pos;
+    pos.textContent = entry.pos || "";
     const translation = document.createElement("span");
     translation.className = "preview-translation";
-    translation.textContent = entry.translation;
+    translation.textContent = entry.translation || "";
     row.append(word, pos, translation);
     previewList.append(row);
+  });
+}
+
+function updateSelectDropdowns() {
+  document.querySelectorAll(".set-select").forEach((select) => {
+    select.replaceChildren();
+    sets.forEach((set) => {
+      const option = document.createElement("option");
+      option.value = set.id;
+      option.textContent = set.name;
+      select.append(option);
+    });
+    select.value = activeSetId;
   });
 }
 
@@ -380,9 +409,7 @@ function changeSet(setId) {
   statusByWord = statusBySet[activeSetId] || (statusBySet[activeSetId] = {});
   try {
     localStorage.setItem(activeSetStorageKey, activeSetId);
-  } catch {
-    // Keep the current session usable when storage is unavailable.
-  }
+  } catch {}
   activeCategory = "all";
   document.querySelectorAll(".list-tab").forEach((tab) => {
     const isActive = tab.dataset.category === "all";
@@ -411,6 +438,113 @@ function setView(view) {
   if (isStudy && voiceSettings.onCard && !document.querySelector("#card-scene").hidden) {
     const entry = currentWord();
     if (entry) speakWord(entry.word);
+  }
+}
+
+// Bật tắt form thêm bộ từ
+const customSetSection = document.querySelector("#custom-set-section");
+document.querySelector("#toggle-add-set-btn")?.addEventListener("click", () => {
+  customSetSection.hidden = !customSetSection.hidden;
+});
+document.querySelector("#btn-cancel-create")?.addEventListener("click", () => {
+  customSetSection.hidden = true;
+});
+
+// Xử lý tách văn bản nhập từ vựng
+function parseRawVocabulary(text) {
+  const lines = text.trim().split("\n");
+  const cards = [];
+
+  lines.forEach((line) => {
+    const separator = line.includes("\t") ? "\t" : (line.includes(" - ") ? " - " : "-");
+    const parts = line.split(separator);
+    if (parts.length >= 2) {
+      const term = parts[0].trim();
+      const def = parts.slice(1).join(separator).trim();
+      if (term && def) {
+        cards.push({
+          word: term,
+          pos: "term",
+          phonetic: "",
+          translation: def,
+          synonyms: [],
+          example: `Example with ${term}.`
+        });
+      }
+    }
+  });
+  return cards;
+}
+
+// Lưu bộ từ lên Firebase
+document.getElementById("btn-save-firebase")?.addEventListener("click", async () => {
+  if (!db) {
+    alert("Chưa kết nối được với Firebase!");
+    return;
+  }
+  const title = document.getElementById("deck-title").value.trim();
+  const rawText = document.getElementById("import-input").value.trim();
+
+  if (!title || !rawText) {
+    alert("Vui lòng nhập tên bộ từ và danh sách từ vựng!");
+    return;
+  }
+
+  const cards = parseRawVocabulary(rawText);
+  if (cards.length === 0) {
+    alert("Không tìm thấy từ vựng hợp lệ. Hãy nhập theo dạng: Từ - Nghĩa");
+    return;
+  }
+
+  const btn = document.getElementById("btn-save-firebase");
+  btn.innerText = "Đang lưu lên hệ thống...";
+  btn.disabled = true;
+
+  try {
+    await db.collection("decks").add({
+      name: title,
+      cards: cards,
+      createdAt: new Date().toISOString()
+    });
+
+    alert("Tạo bộ từ thành công! Đang tải lại danh sách...");
+    document.getElementById("deck-title").value = "";
+    document.getElementById("import-input").value = "";
+    customSetSection.hidden = true;
+    btn.innerText = "Lưu & Chia Sẻ Lên Server";
+    btn.disabled = false;
+    await syncOnlineDecks();
+  } catch (err) {
+    console.error("Lỗi Firebase:", err);
+    alert("Lưu thất bại. Hãy chắc chắn Firestore Database ở trạng thái Test mode.");
+    btn.innerText = "Lưu & Chia Sẻ Lên Server";
+    btn.disabled = false;
+  }
+});
+
+// Tải bộ từ từ Firebase và gộp vào web
+async function syncOnlineDecks() {
+  if (!db) return;
+  try {
+    const snapshot = await db.collection("decks").orderBy("createdAt", "desc").get();
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      const onlineSetId = `firebase-${doc.id}`;
+      if (!setsById.has(onlineSetId)) {
+        const newSet = {
+          id: onlineSetId,
+          name: data.name,
+          cards: data.cards
+        };
+        sets.push(newSet);
+        setsById.set(onlineSetId, newSet);
+      }
+    });
+    updateSelectDropdowns();
+    renderHome();
+    renderSetProgress();
+  } catch (err) {
+    console.warn("Không thể đồng bộ bộ từ từ Firebase:", err);
   }
 }
 
@@ -447,174 +581,4 @@ if (supportsSpeech) {
   refreshVoices();
   window.speechSynthesis.onvoiceschanged = refreshVoices;
 } else {
-  document.querySelectorAll(".listen-button").forEach((button) => { button.disabled = true; });
-  [voiceSelect, speedSelect, onCardToggle, onFlipToggle].forEach((control) => { control.disabled = true; });
-  updateVoiceNote("Speech playback is not supported by this browser.");
-}
-settingsMenu.addEventListener("click", (event) => event.stopPropagation());
-document.addEventListener("click", () => { settingsMenu.open = false; });
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") settingsMenu.open = false;
-});
-
-document.querySelector(".wordmark").addEventListener("click", (event) => {
-  event.preventDefault();
-  setView("home");
-});
-flashcard.addEventListener("click", (event) => {
-  if (event.target.closest(".listen-button")) return;
-  setCardFace(!flashcard.classList.contains("is-flipped"));
-});
-flashcard.addEventListener("keydown", (event) => {
-  if (event.target.closest(".listen-button")) return;
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    setCardFace(!flashcard.classList.contains("is-flipped"));
-  }
-});
-reviewButton.addEventListener("click", () => gradeCard("review"));
-rememberButton.addEventListener("click", () => gradeCard("remembered"));
-document.querySelector("#restart-button").addEventListener("click", startStudy);
-document.querySelector("#preview-start").addEventListener("click", () => setView("study"));
-document.querySelectorAll(".set-select").forEach((select) => {
-  sets.forEach((set) => {
-    const option = document.createElement("option");
-    option.value = set.id;
-    option.textContent = set.name;
-    select.append(option);
-  });
-  select.addEventListener("change", () => changeSet(select.value));
-});
-document.querySelectorAll(".nav-link").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
-document.querySelector("#back-to-study").addEventListener("click", () => setView("study"));
-document.querySelectorAll(".list-tab").forEach((button) => button.addEventListener("click", () => {
-  activeCategory = button.dataset.category;
-  document.querySelectorAll(".list-tab").forEach((tab) => {
-    const isActive = tab === button;
-    tab.classList.toggle("is-active", isActive);
-    tab.setAttribute("aria-selected", String(isActive));
-  });
-  renderWords();
-}));
-document.querySelector("#reset-progress").addEventListener("click", () => {
-  if (!Object.keys(statusByWord).length) return;
-  statusByWord = {};
-  statusBySet[activeSetId] = statusByWord;
-  sessionResults = { review: 0, remembered: 0 };
-  saveProgress();
-  renderCard();
-  renderHome();
-  if (!wordsView.hidden) renderWords();
-});
-document.addEventListener("keydown", (event) => {
-  if (event.target instanceof HTMLElement && ["BUTTON", "A", "INPUT", "TEXTAREA"].includes(event.target.tagName)) return;
-  if (event.target === flashcard) return;
-  if (studyView.hidden || document.querySelector("#card-scene").hidden) return;
-  if (event.key === " ") {
-    event.preventDefault();
-    setCardFace(!flashcard.classList.contains("is-flipped"));
-  }
-  if (event.key === "ArrowLeft") gradeCard("review");
-  if (event.key === "ArrowRight") gradeCard("remembered");
-});
-
-renderCard();
-renderWords();
-renderHome();
-// --- KẾT NỐI VÀ ĐỒNG BỘ DỮ LIỆU VỚI FIREBASE ---
-const firebaseConfig = {
-  apiKey: "AIzaSyCX_30nYbSoKmyyLBQBjTW_0K1zTUnm6CU",
-  authDomain: "muy-flashcards.firebaseapp.com",
-  projectId: "muy-flashcards",
-  storageBucket: "muy-flashcards.firebasestorage.app",
-  messagingSenderId: "745907745384",
-  appId: "1:745907745384:web:826faa570f76bcfdeec1dd",
-  measurementId: "G-L72QT1NLPH"
-};
-
-// Khởi tạo
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.firestore();
-
-// Hàm đọc danh sách từ dạng "Từ - Nghĩa"
-function parseRawVocabulary(text) {
-  const lines = text.trim().split('\n');
-  const cards = [];
-
-  lines.forEach(line => {
-    const separator = line.includes('\t') ? '\t' : (line.includes(' - ') ? ' - ' : '-');
-    const parts = line.split(separator);
-    if (parts.length >= 2) {
-      cards.push({
-        term: parts[0].trim(),
-        definition: parts.slice(1).join(separator).trim()
-      });
-    }
-  });
-  return cards;
-}
-
-// Xử lý nút bấm lưu lên đám mây
-document.getElementById('btn-save-firebase')?.addEventListener('click', async () => {
-  const title = document.getElementById('deck-title').value.trim();
-  const rawText = document.getElementById('import-input').value.trim();
-  
-  if (!title || !rawText) {
-    alert("Vui lòng điền tên bộ từ và nội dung danh sách từ vựng!");
-    return;
-  }
-
-  const cards = parseRawVocabulary(rawText);
-  if (cards.length === 0) {
-    alert("Không tìm thấy từ vựng hợp lệ. Vui lòng nhập theo định dạng: Từ - Nghĩa");
-    return;
-  }
-
-  try {
-    const btn = document.getElementById('btn-save-firebase');
-    btn.innerText = "Đang lưu...";
-    btn.disabled = true;
-
-    // Đẩy lên Firestore
-    await db.collection("decks").add({
-      title: title,
-      cards: cards,
-      createdAt: new Date().toISOString()
-    });
-
-    alert("Đã thêm thành công! Giờ đây bất kỳ ai truy cập web cũng sẽ thấy bộ từ này.");
-    document.getElementById('deck-title').value = '';
-    document.getElementById('import-input').value = '';
-    btn.innerText = "Lưu & Chia Sẻ Lên Hệ Thống";
-    btn.disabled = false;
-    
-    // Tải lại trang để nạp dữ liệu mới
-    location.reload();
-  } catch (err) {
-    console.error("Lỗi Firebase:", err);
-    alert("Lưu thất bại. Hãy chắc chắn bạn đã bật Firestore Database ở Test mode.");
-    const btn = document.getElementById('btn-save-firebase');
-    if (btn) {
-      btn.innerText = "Lưu & Chia Sẻ Lên Hệ Thống";
-      btn.disabled = false;
-    }
-  }
-});
-
-// Tự động tải các bộ từ chung trên mạng khi vào trang
-async function loadOnlineDecks() {
-  try {
-    const snapshot = await db.collection("decks").orderBy("createdAt", "desc").get();
-    const onlineDecks = [];
-    snapshot.forEach(doc => {
-      onlineDecks.push({ id: doc.id, ...doc.data() });
-    });
-    console.log("Dữ liệu các bộ từ trực tuyến tải về thành công:", onlineDecks);
-  } catch (err) {
-    console.error("Chưa thể tải dữ liệu trực tuyến:", err);
-  }
-}
-
-loadOnlineDecks();
+  document.querySelectorAll(".listen-button").forEach((button) => { button.disabled = true;
