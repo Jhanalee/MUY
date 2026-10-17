@@ -521,3 +521,100 @@ document.addEventListener("keydown", (event) => {
 renderCard();
 renderWords();
 renderHome();
+// --- KẾT NỐI VÀ ĐỒNG BỘ DỮ LIỆU VỚI FIREBASE ---
+const firebaseConfig = {
+  apiKey: "AIzaSyCX_30nYbSoKmyyLBQBjTW_0K1zTUnm6CU",
+  authDomain: "muy-flashcards.firebaseapp.com",
+  projectId: "muy-flashcards",
+  storageBucket: "muy-flashcards.firebasestorage.app",
+  messagingSenderId: "745907745384",
+  appId: "1:745907745384:web:826faa570f76bcfdeec1dd",
+  measurementId: "G-L72QT1NLPH"
+};
+
+// Khởi tạo
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.firestore();
+
+// Hàm đọc danh sách từ dạng "Từ - Nghĩa"
+function parseRawVocabulary(text) {
+  const lines = text.trim().split('\n');
+  const cards = [];
+
+  lines.forEach(line => {
+    const separator = line.includes('\t') ? '\t' : (line.includes(' - ') ? ' - ' : '-');
+    const parts = line.split(separator);
+    if (parts.length >= 2) {
+      cards.push({
+        term: parts[0].trim(),
+        definition: parts.slice(1).join(separator).trim()
+      });
+    }
+  });
+  return cards;
+}
+
+// Xử lý nút bấm lưu lên đám mây
+document.getElementById('btn-save-firebase')?.addEventListener('click', async () => {
+  const title = document.getElementById('deck-title').value.trim();
+  const rawText = document.getElementById('import-input').value.trim();
+  
+  if (!title || !rawText) {
+    alert("Vui lòng điền tên bộ từ và nội dung danh sách từ vựng!");
+    return;
+  }
+
+  const cards = parseRawVocabulary(rawText);
+  if (cards.length === 0) {
+    alert("Không tìm thấy từ vựng hợp lệ. Vui lòng nhập theo định dạng: Từ - Nghĩa");
+    return;
+  }
+
+  try {
+    const btn = document.getElementById('btn-save-firebase');
+    btn.innerText = "Đang lưu...";
+    btn.disabled = true;
+
+    // Đẩy lên Firestore
+    await db.collection("decks").add({
+      title: title,
+      cards: cards,
+      createdAt: new Date().toISOString()
+    });
+
+    alert("Đã thêm thành công! Giờ đây bất kỳ ai truy cập web cũng sẽ thấy bộ từ này.");
+    document.getElementById('deck-title').value = '';
+    document.getElementById('import-input').value = '';
+    btn.innerText = "Lưu & Chia Sẻ Lên Hệ Thống";
+    btn.disabled = false;
+    
+    // Tải lại trang để nạp dữ liệu mới
+    location.reload();
+  } catch (err) {
+    console.error("Lỗi Firebase:", err);
+    alert("Lưu thất bại. Hãy chắc chắn bạn đã bật Firestore Database ở Test mode.");
+    const btn = document.getElementById('btn-save-firebase');
+    if (btn) {
+      btn.innerText = "Lưu & Chia Sẻ Lên Hệ Thống";
+      btn.disabled = false;
+    }
+  }
+});
+
+// Tự động tải các bộ từ chung trên mạng khi vào trang
+async function loadOnlineDecks() {
+  try {
+    const snapshot = await db.collection("decks").orderBy("createdAt", "desc").get();
+    const onlineDecks = [];
+    snapshot.forEach(doc => {
+      onlineDecks.push({ id: doc.id, ...doc.data() });
+    });
+    console.log("Dữ liệu các bộ từ trực tuyến tải về thành công:", onlineDecks);
+  } catch (err) {
+    console.error("Chưa thể tải dữ liệu trực tuyến:", err);
+  }
+}
+
+loadOnlineDecks();

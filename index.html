@@ -131,5 +131,21 @@
       </main>
       <footer class="page-footer"><span>MAKE ROOM FOR NEW WORDS.</span><button class="reset-link" id="reset-progress" type="button">Reset progress</button></footer>
     </div>
+    <!-- Nhúng Firebase SDK tương thích -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<!-- Giao diện tạo bộ từ vựng mới -->
+<section id="custom-set-section" style="max-width: 600px; margin: 40px auto; padding: 24px; background: rgba(29, 32, 28, 0.65); border: 1px solid #373a33; border-radius: 12px; color: #fff;">
+  <h3 style="margin-top: 0; color: #d5e88b;">Thêm Bộ Từ Mới (Cả nhóm cùng thấy)</h3>
+  <input type="text" id="deck-title" placeholder="Tên bộ từ (VD: SAT Essential Deck 2)" style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; background: #1c1f1b; color: #fff; border: 1px solid #45473f; border-radius: 6px;" />
+  
+  <p style="font-size: 13px; color: #aaa; margin-bottom: 6px;">Dán danh sách từ: <b>Từ - Nghĩa</b> (mỗi thẻ một dòng hoặc copy từ Excel):</p>
+  <textarea id="import-input" rows="5" placeholder="aberrant - khác thường, lệch lạc&#10;lucid - rõ ràng, dễ hiểu" style="width: 100%; box-sizing: border-box; padding: 10px; background: #1c1f1b; color: #fff; border: 1px solid #45473f; border-radius: 6px;"></textarea>
+  
+  <button id="btn-save-firebase" style="margin-top: 14px; padding: 10px 20px; background: #d5e88b; color: #111; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; width: 100%;">
+    Lưu & Chia Sẻ Lên Hệ Thống
+  </button>
+</section>
   </body>
 </html>
