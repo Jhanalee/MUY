@@ -208,17 +208,17 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
 
 .answer-area { width: min(100%, 560px); margin: 20px auto 0; text-align: center; }
 .answer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.answer-button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 60px; padding: 8px 20px; border: 1px solid var(--border); border-radius: 2px; font-size: 11px; cursor: pointer; transition: border-color .18s, background .18s, opacity .18s, transform .18s; }
+.answer-button { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 64px; padding: 8px 20px; border: 2px solid transparent; border-radius: 3px; font-size: 11px; cursor: pointer; box-shadow: 0 3px 10px #0003; transition: filter .18s, opacity .18s, transform .18s; }
 .answer-button:disabled { opacity: .48; cursor: not-allowed; }
 .answer-button:not(:disabled):hover { transform: translateY(-1px); }
-.answer-review { border-color: var(--review-border); background: var(--rose-dark); color: var(--rose); }
+.answer-review { border-color: #e77a70; background: #762d2a; color: #fff4f1; }
 .answer-review:not(:disabled):hover { filter: brightness(1.15); }
-.answer-remember { border-color: var(--selection-border); background: var(--lime-dark); color: var(--lime); }
+.answer-remember { border-color: #94cf78; background: #315c2c; color: #f2ffed; }
 .answer-remember:not(:disabled):hover { filter: brightness(1.15); }
-.answer-icon { font-size: 16px; line-height: 1; }
+.answer-icon { font-size: 19px; line-height: 1; }
 .answer-copy { display: grid; gap: 3px; text-align: left; }
-.answer-title { font-size: 11px; font-weight: 600; }
-.answer-delay { color: currentColor; font-size: 9px; opacity: .72; }
+.answer-title { font-size: 13px; font-weight: 700; }
+.answer-delay { color: currentColor; font-size: 10px; opacity: .9; }
 .answer-button kbd { position: absolute; right: 11px; color: currentColor; font: 9px "DM Sans", sans-serif; opacity: .55; }
 .keyboard-hint { margin: 13px 0 0; color: var(--subtle); font-size: 8px; font-weight: 600; letter-spacing: 1px; }
 .keyboard-hint kbd { padding: 2px 5px; border: 1px solid var(--control-border); border-radius: 2px; font: 8px "DM Sans", sans-serif; letter-spacing: 0; }
@@ -318,8 +318,8 @@ h1 { margin: 0; font: 400 37px/1.1 "Newsreader", Georgia, serif; }
   .example { font-size: 11px; }
   .answer-area { margin-top: 17px; }
   .answer-button { min-height: 58px; gap: 7px; padding-inline: 8px; font-size: 10px; }
-  .answer-title { font-size: 10px; }
-  .answer-delay { font-size: 8px; }
+  .answer-title { font-size: 12px; }
+  .answer-delay { font-size: 9px; }
   .answer-button kbd { display: none; }
   .session-summary { margin-top: 25px; }
   .list-tabs { gap: 17px; margin-top: 31px; }
