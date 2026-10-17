@@ -109,7 +109,7 @@ function changeStudyOrder(mode) {
     // Keep the selected order for the current session.
   }
   updateStudyOrderControl();
-  if (activeReviewItem) return;
+  if (activeReviewItem || document.querySelector("#card-scene")?.hidden) return;
   if (!currentEntry) return;
 
   const completedSet = new Set(completedWords);
@@ -228,11 +228,16 @@ function loadProgress() {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
     if (saved && typeof saved === "object") {
-      return Object.fromEntries(allSets.map((set) => {
+      const progress = Object.fromEntries(allSets.map((set) => {
         const wordsInSet = new Set(set.cards.map((entry) => entry.word));
         const statuses = saved[set.id] && typeof saved[set.id] === "object" ? saved[set.id] : {};
         return [set.id, Object.fromEntries(Object.entries(statuses).filter(([word, status]) => wordsInSet.has(word) && ["review", "remembered"].includes(status)))];
       }));
+      for (const [setId, statuses] of Object.entries(saved)) {
+        if (setsById.has(setId) || !statuses || typeof statuses !== "object") continue;
+        progress[setId] = Object.fromEntries(Object.entries(statuses).filter(([, status]) => ["review", "remembered"].includes(status)));
+      }
+      return progress;
     }
     const legacy = JSON.parse(localStorage.getItem(legacyStorageKey) || "{}");
     const firstSetWords = new Set(allSets[0]?.cards.map((entry) => entry.word) || []);
@@ -386,6 +391,7 @@ function gradeCard(status) {
   if (!activeReviewItem) currentIndex += 1;
   activeReviewItem = null;
   saveProgress();
+  renderHome();
   renderSetProgress();
   updatePreviewFilterCount();
   if (previewFilterMode === "learning") renderSetPreview();
@@ -397,7 +403,11 @@ function showNextStudyCard() {
     clearInterval(reviewTimer);
     reviewTimer = null;
   }
-  const dueReviewIndex = reviewQueue.findIndex((item) => item.dueAt <= Date.now());
+  const dueReviewIndex = reviewQueue.reduce((earliestIndex, item, index) => {
+    if (item.dueAt > Date.now()) return earliestIndex;
+    if (earliestIndex === -1 || item.dueAt < reviewQueue[earliestIndex].dueAt) return index;
+    return earliestIndex;
+  }, -1);
   if (dueReviewIndex !== -1) {
     activeReviewItem = reviewQueue.splice(dueReviewIndex, 1)[0];
     document.querySelector("#review-waiting").hidden = true;
@@ -547,7 +557,7 @@ function renderHome() {
     progressTrack.className = "home-set-progress-track";
     progressTrack.setAttribute("aria-hidden", "true");
     const progressFill = document.createElement("span");
-    progressFill.style.width = `${(rememberedCount / set.cards.length) * 100}%`;
+    progressFill.style.width = `${set.cards.length ? (rememberedCount / set.cards.length) * 100 : 0}%`;
     progressTrack.append(progressFill);
     const arrow = document.createElement("span");
     arrow.className = "home-set-arrow";
@@ -769,10 +779,18 @@ function parseRawVocabulary(text) {
       // Phần nghĩa và loại từ
       if (parts[1]) {
         let defText = parts[1].trim();
-        const posMatch = defText.match(/\((v\.|n\.|adj\.|adv\.|noun|verb|adjective|adverb)\)/i);
+        const posMatch = defText.match(/\((v\/n|n\/v|v\.|n\.|adj\.|adv\.|noun|verb|adjective|adverb)\)/i);
         if (posMatch) {
           const rawPos = posMatch[1].toLowerCase().replace(".", "");
-          pos = rawPos === "v" ? "verb" : rawPos === "n" ? "noun" : rawPos === "adj" ? "adjective" : rawPos === "adv" ? "adverb" : rawPos;
+          const partOfSpeech = {
+            v: "verb",
+            n: "noun",
+            adj: "adjective",
+            adv: "adverb",
+            "n/v": "noun / verb",
+            "v/n": "verb / noun"
+          };
+          pos = partOfSpeech[rawPos] || rawPos;
           defText = defText.replace(posMatch[0], "").trim();
         }
         translation = defText;
@@ -859,21 +877,47 @@ async function syncOnlineDecks() {
   try {
     const snapshot = await db.collection("decks").orderBy("createdAt", "desc").get();
     snapshot.forEach((doc) => {
-      const data = doc.data();
+      const data = doc.data() || {};
       const onlineSetId = `firebase-${doc.id}`;
       if (!setsById.has(onlineSetId)) {
+        const cards = Array.isArray(data.cards)
+          ? data.cards.filter((card) => card && typeof card.word === "string" && card.word.trim()).map((card) => ({
+            word: card.word.trim(),
+            pos: typeof card.pos === "string" ? card.pos : "word",
+            phonetic: typeof card.phonetic === "string" ? card.phonetic : "",
+            translation: typeof card.translation === "string" ? card.translation : "",
+            synonyms: Array.isArray(card.synonyms) ? card.synonyms.filter((synonym) => typeof synonym === "string") : [],
+            example: typeof card.example === "string" && card.example ? card.example : `The word ${card.word.trim()} is used in this sentence.`
+          }))
+          : [];
+        if (!cards.length) return;
         const newSet = {
           id: onlineSetId,
-          name: data.name,
-          cards: data.cards
+          name: typeof data.name === "string" && data.name.trim() ? data.name.trim() : "Untitled set",
+          cards
         };
         allSets.push(newSet);
         setsById.set(onlineSetId, newSet);
+        const validWords = new Set(cards.map((card) => card.word));
+        statusBySet[onlineSetId] = Object.fromEntries(Object.entries(statusBySet[onlineSetId] || {}).filter(([word, status]) => validWords.has(word) && ["review", "remembered"].includes(status)));
       }
     });
+    let savedSetId = null;
+    try {
+      savedSetId = localStorage.getItem(activeSetStorageKey);
+    } catch {
+      // Continue with the default set when storage is unavailable.
+    }
+    if (savedSetId && setsById.has(savedSetId) && savedSetId !== activeSetId) {
+      activeSetId = savedSetId;
+      statusByWord = statusBySet[activeSetId] || (statusBySet[activeSetId] = {});
+      startStudy();
+    }
     updateSelectDropdowns();
     renderHome();
     renderSetProgress();
+    renderSetPreview();
+    if (wordsView && !wordsView.hidden) renderWords();
   } catch (err) {
     console.warn("Không thể đồng bộ Firestore:", err);
   }
@@ -948,13 +992,26 @@ document.querySelectorAll(".list-tab").forEach((button) => button.addEventListen
 }));
 
 document.querySelector("#reset-progress")?.addEventListener("click", () => {
-  if (!Object.keys(statusByWord).length) return;
+  if (!Object.keys(statusByWord).length && reviewQueue.length === 0) return;
+  if (reviewTimer) clearInterval(reviewTimer);
+  reviewTimer = null;
+  reviewQueue = [];
+  easyReviewCounts = {};
+  activeReviewItem = null;
+  currentIndex = 0;
+  studyOrder = orderCards(activeSet().cards);
   statusByWord = {};
   statusBySet[activeSetId] = statusByWord;
   sessionResults = { review: 0, remembered: 0 };
+  document.querySelector("#review-waiting").hidden = true;
+  document.querySelector("#completion-panel").hidden = true;
+  document.querySelector("#card-scene").hidden = false;
+  document.querySelector("#answer-area").hidden = false;
   saveProgress();
   renderCard();
   renderHome();
+  updatePreviewFilterCount();
+  if (previewFilterMode === "learning") renderSetPreview();
   if (!wordsView.hidden) renderWords();
 });
 
@@ -980,4 +1037,5 @@ updateSelectDropdowns();
 renderCard();
 renderWords();
 renderHome();
+renderSetPreview();
 syncOnlineDecks();
