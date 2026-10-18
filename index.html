@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=18" />
+    <link rel="stylesheet" href="styles.css?v=21" />
   </head>
   <body>
     <div class="app-shell">
@@ -37,16 +37,16 @@
               <section class="settings-group" aria-labelledby="appearance-title">
                 <h2 id="appearance-title">Appearance</h2>
                 <label class="settings-field" for="theme-select">Theme
-                  <select id="theme-select"><option value="green">Green (Lime)</option><option value="red">Red (Rose)</option><option value="graphite">Graphite (Blue)</option></select>
+                  <select id="theme-select" class="custom-select"><option value="green">Green (Lime)</option><option value="red">Red (Rose)</option><option value="graphite">Graphite (Blue)</option></select>
                 </label>
               </section>
               <section class="settings-group voice-settings" aria-labelledby="voice-title">
                 <h2 id="voice-title">Voice</h2>
                 <label class="settings-field" for="voice-gender">Voice type
-                  <select id="voice-gender"><option value="female">Female</option><option value="male">Male</option></select>
+                  <select id="voice-gender" class="custom-select"><option value="female">Female</option><option value="male">Male</option></select>
                 </label>
                 <label class="settings-field" for="voice-speed">Speed
-                  <select id="voice-speed"><option value="normal">Normal</option><option value="slow">Slow</option></select>
+                  <select id="voice-speed" class="custom-select"><option value="normal">Normal</option><option value="slow">Slow</option></select>
                 </label>
                 <label style="display:flex; gap:10px; margin-top:10px; color:var(--muted); font-size:12px;"><input id="voice-on-card" type="checkbox" /> Speak when card appears</label>
                 <label style="display:flex; gap:10px; margin-top:10px; color:var(--muted); font-size:12px;"><input id="voice-on-flip" type="checkbox" /> Speak when card flips</label>
@@ -93,7 +93,8 @@
           </div>
           <div class="study-meta">
             <div class="study-set-controls">
-              <label class="set-picker"><span class="deck-mark">✳</span><select class="set-select" id="study-set-select"></select></label>
+              <!-- CHỈNH LẠI CHỮ "BỘ THẺ" -->
+              <label class="set-picker"><span class="deck-mark" style="font-weight: bold; color: var(--lime); margin-right: 8px;">Bộ thẻ:</span><select class="custom-select set-select" id="study-set-select"></select></label>
             </div>
             <div class="study-meta-tools">
               <div class="study-order">
@@ -123,7 +124,6 @@
           </div>
 
           <div class="answer-area" id="answer-area">
-            <!-- ĐÃ SỬA LẠI CẤU TRÚC HTML NÚT HARD/EASY ĐỂ CHỮ KHÔNG DÍNH NHAU -->
             <div class="answer-actions">
               <button class="answer-button answer-review" id="review-button" type="button">
                   <span class="answer-title">× Hard</span>
@@ -162,10 +162,11 @@
             <h2 style="margin-top: 0; color: var(--ink);">Cài đặt bài kiểm tra</h2>
             <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px; text-align: left;">
               <label style="color: var(--muted); font-size: 13px;">Bộ từ:
-                <select id="test-set-select" class="set-select" style="width: 100%; margin-top: 10px;"></select>
+                <select id="test-set-select" class="custom-select set-select" style="width: 100%; margin-top: 10px;"></select>
               </label>
+              <!-- ĐÃ XÓA CLASS set-select ĐỂ KHÔNG BỊ TRÙNG VỚI DANH SÁCH TỪ -->
               <label style="color: var(--muted); font-size: 13px;">Loại câu hỏi:
-                <select id="test-type-select" class="set-select" style="width: 100%; margin-top: 10px;">
+                <select id="test-type-select" class="custom-select" style="width: 100%; margin-top: 10px;">
                   <option value="meaning-word">Hỏi Định Nghĩa ➔ Điền Từ</option>
                   <option value="word-meaning">Hỏi Từ ➔ Điền Định Nghĩa</option>
                   <option value="synonym-word">Hỏi Đồng Nghĩa ➔ Điền Từ</option>
@@ -210,10 +211,11 @@
             <h2 style="margin-top: 0; color: var(--ink);">Tạo Ô Chữ Tự Động</h2>
             <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px; text-align: left;">
               <label style="color: var(--muted); font-size: 13px;">Bộ từ:
-                <select id="cw-set-select" class="set-select" style="width: 100%; margin-top: 10px;"></select>
+                <select id="cw-set-select" class="custom-select set-select" style="width: 100%; margin-top: 10px;"></select>
               </label>
+              <!-- ĐÃ XÓA CLASS set-select ĐỂ KHÔNG BỊ TRÙNG VỚI DANH SÁCH TỪ -->
               <label style="color: var(--muted); font-size: 13px;">Loại gợi ý:
-                <select id="cw-clue-type-select" class="set-select" style="width: 100%; margin-top: 10px;">
+                <select id="cw-clue-type-select" class="custom-select" style="width: 100%; margin-top: 10px;">
                   <option value="meaning">Chỉ Định Nghĩa</option>
                   <option value="synonym">Chỉ Đồng Nghĩa</option>
                   <option value="both">Cả Định Nghĩa & Đồng Nghĩa</option>
@@ -264,8 +266,7 @@
           <div class="words-heading">
             <div><p class="eyebrow">YOUR DICTIONARY</p><h1>My words.</h1></div>
             <div style="display:flex; flex-direction: column; align-items: flex-end;">
-                <!-- CHỈNH LẠI SELECT Ở MY WORDS CHO ĐẸP VÀ RÕ RÀNG HƠN -->
-                <select class="set-select" id="words-set-select" style="margin-bottom: 15px; min-width: 250px; font-size: 15px; padding: 12px;"></select>
+                <select class="custom-select set-select" id="words-set-select" style="margin-bottom: 15px; min-width: 250px; font-size: 15px; padding: 12px;"></select>
                 <button class="restart-button" id="back-to-study" type="button" style="padding: 8px 20px; background: transparent; border-color: var(--lime); color: var(--lime);">Study this set ➔</button>
             </div>
           </div>

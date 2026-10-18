@@ -19,6 +19,9 @@ var studyQueue = [], currentCardObj = null, totalCardsInSession = 0, completedCa
 var testQuestions = [], testMode = "meaning-word";
 var cwGridData = {}, cwWordsPlaced = [], cwCurrentDir = "H", cwCurrentWordId = null;
 
+// ==========================================
+// HÀM BẢO VỆ CHỐNG LỖI DOM
+// ==========================================
 function _el(s) { return document.querySelector(s); }
 function _txt(s, t) { var e = _el(s); if(e) e.textContent = t; }
 function _html(s, h) { var e = _el(s); if(e) e.innerHTML = h; }
@@ -26,6 +29,7 @@ function _hide(s) { var e = _el(s); if(e) e.hidden = true; }
 function _show(s) { var e = _el(s); if(e) e.hidden = false; }
 function _val(s, v) { var e = _el(s); if(e) e.value = v; }
 function _getVal(s) { var e = _el(s); return e ? e.value : ""; }
+function _bind(s, ev, cb) { var e = _el(s); if(e) e.addEventListener(ev, cb); }
 
 function activeSet() { return setsById.get(activeSetId) || allSets[0] || { id: "default", name: "Empty", cards: [] }; }
 function loadActiveSet() { try { return setsById.has(localStorage.getItem(activeSetStorageKey)) ? localStorage.getItem(activeSetStorageKey) : (allSets[0] ? allSets[0].id : "essentials"); } catch (e) { return allSets[0] ? allSets[0].id : "essentials"; } }
@@ -45,9 +49,12 @@ function setCardFace(isF) { var fc = _el("#flashcard"); if (!fc) return; isF ? f
 
 function updateSelectDropdowns() {
   document.querySelectorAll(".set-select").forEach(function(select) {
-    select.innerHTML = "";
-    allSets.forEach(function(set) { var option = document.createElement("option"); option.value = set.id; option.textContent = set.name; select.appendChild(option); });
-    select.value = activeSetId;
+    // Ngăn việc xóa nhầm option của "Loại câu hỏi" hoặc "Loại gợi ý"
+    if(select.id !== "test-type-select" && select.id !== "cw-clue-type-select") {
+        select.innerHTML = "";
+        allSets.forEach(function(set) { var option = document.createElement("option"); option.value = set.id; option.textContent = set.name; select.appendChild(option); });
+        select.value = activeSetId;
+    }
   });
   updateTestRangeBounds(); updateCwRangeBounds();
 }
@@ -88,9 +95,7 @@ function renderHome() {
     var btn=document.createElement("button"); btn.className="home-set-option"+(set.id===activeSetId?" is-selected":""); btn.type="button";
     btn.innerHTML="<span class='home-set-label'>SET "+formatCount(i+1)+" · "+formatCount(set.cards.length)+" WORDS</span><span class='home-set-name'>"+set.name+"</span><span class='home-set-progress'>"+rc+" / "+set.cards.length+" remembered</span><span class='home-set-arrow'>➔</span>";
     if(set.id.indexOf("firebase-")===0){
-      btn.style.position="relative"; var del=document.createElement("button"); del.textContent="🗑 Xóa"; del.setAttribute("style", "position:absolute;top:20px;right:20px;font-size:11px;color:var(--rose);padding:6px 12px;border:1px solid var(--border);border-radius:20px;background:rgba(0,0,0,0.5);cursor:pointer;z-index:10;transition:0.3s;");
-      del.addEventListener("mouseover", function(){ del.style.background="var(--rose)"; del.style.color="white"; });
-      del.addEventListener("mouseout", function(){ del.style.background="rgba(0,0,0,0.5)"; del.style.color="var(--rose)"; });
+      btn.style.position="relative"; var del=document.createElement("button"); del.textContent="🗑 Xóa"; del.className = "btn-delete-set";
       del.addEventListener("click", function(e){
         e.stopPropagation(); if(confirm("Xóa vĩnh viễn: "+set.name+"?")){
           del.textContent="..."; db.collection("decks").doc(set.id.replace("firebase-","")).delete().then(function(){
@@ -402,80 +407,119 @@ function parseRawVocabulary(text) {
   }); return cards;
 }
 
-var bsf=_el("#btn-save-firebase");
-if(bsf) bsf.addEventListener("click", function(){
-  if(!db){alert("Chưa kết nối Firebase!");return;}
-  var ti=_el("#deck-title"), ra=_el("#import-input");
-  if(!ti||!ti.value.trim() || !ra||!ra.value.trim()){alert("Nhập đủ thông tin!");return;}
-  var c=parseRawVocabulary(ra.value); if(c.length===0){alert("Sai định dạng!");return;}
-  bsf.innerText="Đang lưu..."; bsf.disabled=true;
-  db.collection("decks").add({name:ti.value.trim(), cards:c, createdAt:new Date().toISOString()}).then(function(){
-    alert("Tạo bộ từ thành công!"); ti.value=""; ra.value=""; _hide("#custom-set-section");
-    bsf.innerText="Lưu Lên Server"; bsf.disabled=false; syncOnlineDecks();
-  }).catch(function(){alert("Lỗi lưu!"); bsf.innerText="Lưu Lên Server"; bsf.disabled=false;});
-});
+// ==========================================
+// KHỞI TẠO VÀ GẮN SỰ KIỆN TOÀN CỤC
+// ==========================================
+document.addEventListener("DOMContentLoaded", function() {
 
-function syncOnlineDecks() {
-  if(!db) return;
-  db.collection("decks").orderBy("createdAt","desc").get().then(function(snap){
-    var a=false; snap.forEach(function(doc){
-      var d=doc.data(), id="firebase-"+doc.id;
-      if(!setsById.has(id)){ allSets.push({id:id, name:d.name, cards:d.cards}); setsById.set(id, allSets[allSets.length-1]); a=true; }
-    });
-    if(a){ updateSelectDropdowns(); if(setsById.has(activeSetId)) changeSet(activeSetId); else if(allSets.length>0) changeSet(allSets[0].id); }
-  }).catch(function(err){ console.warn("Lỗi đồng bộ:", err); });
-}
-
-// Bắt sự kiện
-_el("#review-button")?.addEventListener("click", function(){gradeCard("review");});
-_el("#remember-button")?.addEventListener("click", function(){gradeCard("remembered");});
-_el("#restart-button")?.addEventListener("click", startStudy);
-_el("#preview-start")?.addEventListener("click", function(){setView("study");});
-document.querySelectorAll(".study-order-button").forEach(function(b){ b.addEventListener("click",function(){ document.querySelectorAll(".study-order-button").forEach(function(x){x.classList.remove("is-active");x.setAttribute("aria-pressed","false");}); b.classList.add("is-active"); b.setAttribute("aria-pressed","true"); currentOrderMode=b.dataset.studyOrder; var sv=_el("#study-view"); if(sv&&!sv.hidden) startStudy(); }); });
-_el("#finish-early")?.addEventListener("click", function(){ if(waitingInterval){clearInterval(waitingInterval);waitingInterval=null;} showCompletion(); });
-_el("#toggle-add-set-btn")?.addEventListener("click", function(){ var c=_el("#custom-set-section"); if(c) c.hidden=!c.hidden; });
-_el("#btn-cancel-create")?.addEventListener("click", function(){ _hide("#custom-set-section"); });
-
-_el("#test-start-btn")?.addEventListener("click", generateTestQuestions);
-_el("#test-submit-btn")?.addEventListener("click", submitFullTest);
-_el("#test-abort-btn")?.addEventListener("click", function(){ if(confirm("Hủy bài?")){_hide("#test-run-panel");_show("#test-setup-panel");} });
-_el("#test-retry-btn")?.addEventListener("click", function(){ _hide("#test-result-summary");_hide("#test-run-panel");_show("#test-setup-panel"); });
-_el("#cw-start-btn")?.addEventListener("click", generateCrossword);
-_el("#cw-submit-btn")?.addEventListener("click", submitCrossword);
-_el("#cw-abort-btn")?.addEventListener("click", function(){ if(confirm("Thoát?")){_hide("#cw-run-panel");_show("#cw-setup-panel");} });
-_el("#cw-retry-btn")?.addEventListener("click", function(){ _hide("#cw-result-summary");_hide("#cw-run-panel");_show("#cw-setup-panel"); });
-
-_el("#back-to-study")?.addEventListener("click", function(){setView("study");});
-_el("#theme-select")?.addEventListener("change", function(e){applyTheme(e.target.value);});
-document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-on-flip").forEach(function(c){
-  c.addEventListener("change", function(){
-    var vg=_el("#voice-gender"), vs=_el("#voice-speed"), vc=_el("#voice-on-card"), vf=_el("#voice-on-flip");
-    voiceSettings={gender:vg?vg.value:"female", speed:vs?vs.value:"normal", onCard:vc?vc.checked:true, onFlip:vf?vf.checked:true};
-    saveVoiceSettings(); updateVoiceNote();
+  var bsf=_el("#btn-save-firebase");
+  if(bsf) bsf.addEventListener("click", function(){
+    if(!db){alert("Chưa kết nối Firebase!");return;}
+    var ti=_el("#deck-title"), ra=_el("#import-input");
+    if(!ti||!ti.value.trim() || !ra||!ra.value.trim()){alert("Nhập đủ thông tin!");return;}
+    var c=parseRawVocabulary(ra.value); if(c.length===0){alert("Sai định dạng!");return;}
+    bsf.innerText="Đang lưu..."; bsf.disabled=true;
+    db.collection("decks").add({name:ti.value.trim(), cards:c, createdAt:new Date().toISOString()}).then(function(){
+      alert("Tạo bộ từ thành công!"); ti.value=""; ra.value=""; _hide("#custom-set-section");
+      bsf.innerText="Lưu Lên Server"; bsf.disabled=false; syncOnlineDecks();
+    }).catch(function(){alert("Lỗi lưu!"); bsf.innerText="Lưu Lên Server"; bsf.disabled=false;});
   });
-});
-_el("#settings-menu")?.addEventListener("click", function(e){e.stopPropagation();});
-document.addEventListener("click", function(){ var m=_el("#settings-menu"); if(m) m.open=false; });
-document.addEventListener("keydown", function(e){ if(e.key==="Escape"){ var m=_el("#settings-menu"); if(m) m.open=false;} });
-_el(".wordmark")?.addEventListener("click", function(e){e.preventDefault();setView("home");});
-var fc=_el("#flashcard"); if(fc){ fc.addEventListener("click", function(e){if(e.target.closest(".listen-button"))return; setCardFace(!fc.classList.contains("is-flipped"));}); fc.addEventListener("keydown", function(e){if(e.target.closest(".listen-button"))return; if(e.key==="Enter"||e.key===" "){e.preventDefault(); setCardFace(!fc.classList.contains("is-flipped"));}}); }
-document.querySelectorAll(".set-select").forEach(function(s){ s.addEventListener("change", function(){changeSet(s.value);}); });
-document.querySelectorAll(".nav-link").forEach(function(b){ b.addEventListener("click", function(){setView(b.dataset.view);}); });
-document.querySelectorAll(".list-tab").forEach(function(b){ b.addEventListener("click", function(){activeCategory=b.dataset.category; document.querySelectorAll(".list-tab").forEach(function(t){t.classList.toggle("is-active",t===b); t.setAttribute("aria-selected",String(t===b));}); renderWords();}); });
-_el("#reset-progress")?.addEventListener("click", function(){ if(confirm("Xóa toàn bộ tiến độ học tập trên máy này?")){ statusByWord={}; statusBySet={}; saveProgress(); alert("Đã reset."); window.location.reload(); }});
-document.addEventListener("keydown", function(e){
-  if(e.target instanceof HTMLElement && ["BUTTON","A","INPUT","TEXTAREA"].indexOf(e.target.tagName)!==-1) return;
-  var sv=_el("#study-view"), cs=_el("#card-scene"), ffc=_el("#flashcard");
-  if(e.target===ffc || (sv&&sv.hidden) || (cs&&cs.hidden)) return;
-  if(e.key===" "){e.preventDefault(); if(ffc) setCardFace(!ffc.classList.contains("is-flipped"));}
-  if(e.key==="ArrowLeft") gradeCard("review");
-  if(e.key==="ArrowRight") gradeCard("remembered");
-});
 
-// Khởi chạy
-applyTheme(loadTheme());
-updateSelectDropdowns();
-startStudy();
-renderWords();
-renderHome();
-syncOnlineDecks();
+  function syncOnlineDecks() {
+    if(!db) return;
+    db.collection("decks").orderBy("createdAt","desc").get().then(function(snap){
+      var a=false; snap.forEach(function(doc){
+        var d=doc.data(), id="firebase-"+doc.id;
+        if(!setsById.has(id)){ allSets.push({id:id, name:d.name, cards:d.cards}); setsById.set(id, allSets[allSets.length-1]); a=true; }
+      });
+      if(a){ updateSelectDropdowns(); if(setsById.has(activeSetId)) changeSet(activeSetId); else if(allSets.length>0) changeSet(allSets[0].id); }
+    }).catch(function(err){ console.warn("Lỗi đồng bộ:", err); });
+  }
+
+  _bind("#review-button", "click", function(){gradeCard("review");});
+  _bind("#remember-button", "click", function(){gradeCard("remembered");});
+  _bind("#restart-button", "click", startStudy);
+  _bind("#preview-start", "click", function(){setView("study");});
+  
+  document.querySelectorAll(".study-order-button").forEach(function(b){ 
+    b.addEventListener("click",function(){ 
+      document.querySelectorAll(".study-order-button").forEach(function(x){x.classList.remove("is-active");x.setAttribute("aria-pressed","false");}); 
+      b.classList.add("is-active"); b.setAttribute("aria-pressed","true"); currentOrderMode=b.dataset.studyOrder; 
+      var sv=_el("#study-view"); if(sv&&!sv.hidden) startStudy(); 
+    }); 
+  });
+  
+  _bind("#finish-early", "click", function(){ if(waitingInterval){clearInterval(waitingInterval);waitingInterval=null;} showCompletion(); });
+  _bind("#toggle-add-set-btn", "click", function(){ var c=_el("#custom-set-section"); if(c) c.hidden=!c.hidden; });
+  _bind("#btn-cancel-create", "click", function(){ _hide("#custom-set-section"); });
+
+  _bind("#test-start-btn", "click", generateTestQuestions);
+  _bind("#test-submit-btn", "click", submitFullTest);
+  _bind("#test-abort-btn", "click", function(){ if(confirm("Hủy bài?")){_hide("#test-run-panel");_show("#test-setup-panel");} });
+  _bind("#test-retry-btn", "click", function(){ _hide("#test-result-summary");_hide("#test-run-panel");_show("#test-setup-panel"); });
+  
+  _bind("#cw-start-btn", "click", generateCrossword);
+  _bind("#cw-submit-btn", "click", submitCrossword);
+  _bind("#cw-abort-btn", "click", function(){ if(confirm("Thoát?")){_hide("#cw-run-panel");_show("#cw-setup-panel");} });
+  _bind("#cw-retry-btn", "click", function(){ _hide("#cw-result-summary");_hide("#cw-run-panel");_show("#cw-setup-panel"); });
+
+  _bind("#back-to-study", "click", function(){setView("study");});
+  _bind("#theme-select", "change", function(e){applyTheme(e.target.value);});
+  
+  document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-on-flip").forEach(function(c){
+    c.addEventListener("change", function(){
+      var vg=_el("#voice-gender"), vs=_el("#voice-speed"), vc=_el("#voice-on-card"), vf=_el("#voice-on-flip");
+      voiceSettings={gender:vg?vg.value:"female", speed:vs?vs.value:"normal", onCard:vc?vc.checked:true, onFlip:vf?vf.checked:true};
+      saveVoiceSettings(); updateVoiceNote();
+    });
+  });
+  
+  _bind("#settings-menu", "click", function(e){e.stopPropagation();});
+  document.addEventListener("click", function(){ var m=_el("#settings-menu"); if(m) m.open=false; });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape"){ var m=_el("#settings-menu"); if(m) m.open=false;} });
+  _bind(".wordmark", "click", function(e){e.preventDefault();setView("home");});
+  
+  // TÍNH NĂNG CHỐNG LIỆT THẺ & THOẢI MÁI COPY BÔI ĐEN CHỮ
+  var fc=_el("#flashcard"); 
+  if(fc){ 
+    fc.addEventListener("click", function(e){
+      // Không lật nếu bấm vào nút phát âm hoặc các nút bấm khác
+      if(e.target.closest("button") || e.target.tagName.toLowerCase() === "button") return; 
+      // Không lật nếu người dùng đang bôi đen text để copy
+      var sel = window.getSelection();
+      if (sel && sel.toString().trim().length > 0) return;
+      
+      setCardFace(!fc.classList.contains("is-flipped"));
+    }); 
+  }
+  
+  document.querySelectorAll(".set-select").forEach(function(s){ s.addEventListener("change", function(){changeSet(s.value);}); });
+  document.querySelectorAll(".nav-link").forEach(function(b){ b.addEventListener("click", function(){setView(b.dataset.view);}); });
+  document.querySelectorAll(".list-tab").forEach(function(b){ 
+    b.addEventListener("click", function(){
+      activeCategory=b.dataset.category; 
+      document.querySelectorAll(".list-tab").forEach(function(t){t.classList.toggle("is-active",t===b); t.setAttribute("aria-selected",String(t===b));}); 
+      renderWords();
+    }); 
+  });
+  
+  _bind("#reset-progress", "click", function(){ if(confirm("Xóa toàn bộ tiến độ học tập trên máy này?")){ statusByWord={}; statusBySet={}; saveProgress(); alert("Đã reset."); window.location.reload(); }});
+  
+  // Phím tắt bàn phím lật thẻ (Dấu cách)
+  document.addEventListener("keydown", function(e){
+    if(e.target instanceof HTMLElement && ["BUTTON","A","INPUT","TEXTAREA","SELECT"].indexOf(e.target.tagName)!==-1) return;
+    var sv=_el("#study-view"), cs=_el("#card-scene"), ffc=_el("#flashcard");
+    if(e.target===ffc || (sv&&sv.hidden) || (cs&&cs.hidden)) return;
+    
+    if(e.key===" "){e.preventDefault(); if(ffc) setCardFace(!ffc.classList.contains("is-flipped"));}
+    if(e.key==="ArrowLeft") gradeCard("review");
+    if(e.key==="ArrowRight") gradeCard("remembered");
+  });
+
+  applyTheme(loadTheme());
+  updateSelectDropdowns();
+  startStudy();
+  renderWords();
+  renderHome();
+  syncOnlineDecks();
+});
