@@ -29,6 +29,10 @@ allSets.forEach(function(set) { setsById.set(set.id, set); });
 
 var flashcard = document.querySelector("#flashcard");
 var studyView = document.querySelector("#study-view");
+var homeView = document.querySelector("#home-view");
+var wordsView = document.querySelector("#words-view");
+var testView = document.querySelector("#test-view");
+var gameView = document.querySelector("#game-view");
 var supportsSpeech = "speechSynthesis" in window;
 
 var activeSetId = loadActiveSet();
@@ -59,6 +63,9 @@ var cwWordsPlaced = [];
 var cwCurrentDir = "H"; 
 var cwCurrentWordId = null;
 
+// ==========================================
+// CÁC HÀM TIỆN ÍCH VÀ THIẾT LẬP
+// ==========================================
 function activeSet() { return setsById.get(activeSetId) || allSets[0] || { id: "default", name: "Empty", cards: [] }; }
 function loadActiveSet() {
   try { return setsById.has(localStorage.getItem(activeSetStorageKey)) ? localStorage.getItem(activeSetStorageKey) : (allSets[0] ? allSets[0].id : "essentials"); } 
@@ -136,6 +143,90 @@ function setCardFace(isF) {
   var f=document.querySelector("#card-front"), b=document.querySelector("#card-back");
   if(f) f.setAttribute("aria-hidden", String(isF)); if(b) b.setAttribute("aria-hidden", String(!isF));
   if (isF && voiceSettings.onFlip && studyView && !studyView.hidden) { var e=currentWord(); if(e) speakWord(e.word); }
+}
+
+// ==========================================
+// KHỐI ĐIỀU KHIỂN GIAO DIỆN (ĐÃ PHỤC HỒI)
+// ==========================================
+function updateSelectDropdowns() {
+  document.querySelectorAll(".set-select").forEach(function(select) {
+    select.innerHTML = "";
+    allSets.forEach(function(set) {
+      var option = document.createElement("option");
+      option.value = set.id; option.textContent = set.name;
+      select.appendChild(option);
+    });
+    select.value = activeSetId;
+  });
+  updateTestRangeBounds();
+  updateCwRangeBounds();
+}
+
+function renderSetProgress() {
+  var selectors = [document.querySelector("#study-set-select"), document.querySelector("#words-set-select"), document.querySelector("#test-set-select"), document.querySelector("#cw-set-select")];
+  allSets.forEach(function(set) {
+    var statuses = statusBySet[set.id] || {};
+    var rememberedCount = Object.keys(statuses).filter(function(k) { return statuses[k] === "remembered"; }).length;
+    var optionLabel = set.name + " (" + rememberedCount + "/" + set.cards.length + ")";
+    selectors.forEach(function(select) {
+      if (!select) return;
+      var option = select.querySelector("option[value='" + set.id + "']");
+      if (option) option.textContent = optionLabel;
+    });
+  });
+  selectors.forEach(function(select) { if (select) select.value = activeSetId; });
+  
+  var st = statusBySet[activeSetId] || {};
+  var rc = Object.keys(st).filter(function(k) { return st[k] === "remembered"; }).length;
+  var rvc = Object.keys(st).filter(function(k) { return st[k] === "review"; }).length;
+  var sum = rc + " of " + activeSet().cards.length + " remembered · " + rvc + " to review";
+  
+  if (document.querySelector("#study-set-progress")) document.querySelector("#study-set-progress").textContent = sum;
+  if (document.querySelector("#words-set-progress")) document.querySelector("#words-set-progress").textContent = sum;
+}
+
+function changeSet(setId) {
+  if (!setsById.has(setId) || setId === activeSetId) return;
+  activeSetId = setId;
+  statusByWord = statusBySet[activeSetId] || (statusBySet[activeSetId] = {});
+  try { localStorage.setItem(activeSetStorageKey, activeSetId); } catch (e) {}
+  activeCategory = "all";
+  document.querySelectorAll(".list-tab").forEach(function(tab) {
+    var isActive = tab.dataset.category === "all";
+    tab.classList.toggle("is-active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+  });
+  updateTestRangeBounds();
+  updateCwRangeBounds();
+  startStudy();
+  renderWords();
+  renderHome();
+}
+
+function setView(view) {
+  if (homeView) homeView.hidden = (view !== "home");
+  if (studyView) studyView.hidden = (view !== "study");
+  if (wordsView) wordsView.hidden = (view !== "words");
+  if (testView) testView.hidden = (view !== "test");
+  if (gameView) gameView.hidden = (view !== "game");
+  
+  document.querySelectorAll(".nav-link").forEach(function(button) {
+    var isActive = button.dataset.view === view;
+    button.classList.toggle("is-active", isActive);
+    if (isActive) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  
+  if (view === "home") renderHome();
+  if (view === "words") renderWords();
+  if (view === "test") updateTestRangeBounds();
+  if (view === "game") updateCwRangeBounds();
+  
+  var cardScene = document.querySelector("#card-scene");
+  if (view === "study" && voiceSettings.onCard && cardScene && !cardScene.hidden) {
+    var entry = currentWord();
+    if (entry) speakWord(entry.word);
+  }
 }
 
 // ==========================================
@@ -474,15 +565,15 @@ function submitCrossword() {
 }
 
 // ==========================================
-// VIEWS & GIAO DIỆN CHÍNH
+// RENDER DANH SÁCH TỪ VÀ TRANG CHỦ
 // ==========================================
 function renderWords() {
   var w = activeSet().cards; var rc=0, rvc=0;
   for(var k in statusByWord){ if(statusByWord[k]==="remembered") rc++; else if(statusByWord[k]==="review") rvc++; }
-  document.querySelector("#total-count").textContent=formatCount(w.length);
-  document.querySelector("#all-count").textContent=formatCount(w.length);
-  document.querySelector("#remembered-count").textContent=formatCount(rc);
-  document.querySelector("#review-count").textContent=formatCount(rvc);
+  if (document.querySelector("#total-count")) document.querySelector("#total-count").textContent=formatCount(w.length);
+  if (document.querySelector("#all-count")) document.querySelector("#all-count").textContent=formatCount(w.length);
+  if (document.querySelector("#remembered-count")) document.querySelector("#remembered-count").textContent=formatCount(rc);
+  if (document.querySelector("#review-count")) document.querySelector("#review-count").textContent=formatCount(rvc);
   renderSetProgress();
   var l=document.querySelector("#word-list"); if(!l) return; l.innerHTML="";
   var en = activeCategory==="all" ? w : w.filter(function(e){return statusByWord[e.word]===activeCategory;});
@@ -517,7 +608,9 @@ function renderHome() {
     }
     btn.addEventListener("click", function(){ changeSet(set.id); }); g.appendChild(btn);
   });
-  var s=activeSet(); document.querySelector("#preview-title").textContent=s.name; document.querySelector("#preview-count").textContent=formatCount(s.cards.length)+" WORDS";
+  var s=activeSet(); 
+  if(document.querySelector("#preview-title")) document.querySelector("#preview-title").textContent=s.name; 
+  if(document.querySelector("#preview-count")) document.querySelector("#preview-count").textContent=formatCount(s.cards.length)+" WORDS";
   var pl=document.querySelector("#preview-list"); if(!pl) return; pl.innerHTML="";
   s.cards.forEach(function(e){ var r=document.createElement("li"); r.className="preview-word-row"; r.innerHTML="<span class='preview-word'>"+e.word+"</span><span class='preview-pos'>"+(e.pos||"")+"</span><span class='preview-translation'>"+(e.translation||"")+"</span>"; pl.appendChild(r); });
 }
@@ -569,7 +662,9 @@ function syncOnlineDecks() {
   });
 }
 
-// Bắt sự kiện Giao diện
+// ==========================================
+// CÁC SỰ KIỆN GIAO DIỆN
+// ==========================================
 document.querySelector("#review-button")?.addEventListener("click", function(){gradeCard("review");});
 document.querySelector("#remember-button")?.addEventListener("click", function(){gradeCard("remembered");});
 document.querySelector("#restart-button")?.addEventListener("click", startStudy);
@@ -594,7 +689,8 @@ document.querySelector("#back-to-study")?.addEventListener("click", function(){s
 document.querySelector("#theme-select")?.addEventListener("change", function(e){applyTheme(e.target.value);});
 document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-on-flip").forEach(function(c){
   c.addEventListener("change", function(){
-    voiceSettings={gender:document.querySelector("#voice-gender").value, speed:document.querySelector("#voice-speed").value, onCard:document.querySelector("#voice-on-card").checked, onFlip:document.querySelector("#voice-on-flip").checked};
+    var vg=document.querySelector("#voice-gender"), vs=document.querySelector("#voice-speed"), vc=document.querySelector("#voice-on-card"), vf=document.querySelector("#voice-on-flip");
+    voiceSettings={gender:vg?vg.value:"female", speed:vs?vs.value:"normal", onCard:vc?vc.checked:true, onFlip:vf?vf.checked:true};
     saveVoiceSettings(); updateVoiceNote();
   });
 });
@@ -616,6 +712,7 @@ document.addEventListener("keydown", function(e){
   if(e.key==="ArrowRight") gradeCard("remembered");
 });
 
+// KHỞI CHẠY LẦN ĐẦU
 applyTheme(loadTheme());
 updateSelectDropdowns();
 startStudy();
