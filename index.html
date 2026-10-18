@@ -6,15 +6,11 @@
     <meta name="theme-color" content="#10120f" />
     <meta name="description" content="A focused space to study SAT vocabulary." />
     <title>SAT Vocabulary Master</title>
-    
-    <script>
-      window.onerror = function(msg, url, line) { console.warn("Lỗi JS:", msg, "tại dòng:", line); };
-    </script>
-
+    <script>window.onerror = function(msg, url, line) { console.warn("Lỗi JS:", msg, "tại dòng:", line); };</script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=21" />
+    <link rel="stylesheet" href="styles.css?v=23" />
   </head>
   <body>
     <div class="app-shell">
@@ -31,23 +27,17 @@
         <div class="topbar-tools">
           <details class="settings-menu" id="settings-menu">
             <summary class="settings-trigger" aria-label="Open settings" title="Settings">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
             </summary>
             <div class="settings-panel">
-              <section class="settings-group" aria-labelledby="appearance-title">
-                <h2 id="appearance-title">Appearance</h2>
-                <label class="settings-field" for="theme-select">Theme
-                  <select id="theme-select" class="custom-select"><option value="green">Green (Lime)</option><option value="red">Red (Rose)</option><option value="graphite">Graphite (Blue)</option></select>
-                </label>
+              <section class="settings-group">
+                <h2>Appearance</h2>
+                <label class="settings-field">Theme <select id="theme-select" class="custom-select"><option value="green">Green (Lime)</option><option value="red">Red (Rose)</option><option value="graphite">Graphite (Blue)</option></select></label>
               </section>
-              <section class="settings-group voice-settings" aria-labelledby="voice-title">
-                <h2 id="voice-title">Voice</h2>
-                <label class="settings-field" for="voice-gender">Voice type
-                  <select id="voice-gender" class="custom-select"><option value="female">Female</option><option value="male">Male</option></select>
-                </label>
-                <label class="settings-field" for="voice-speed">Speed
-                  <select id="voice-speed" class="custom-select"><option value="normal">Normal</option><option value="slow">Slow</option></select>
-                </label>
+              <section class="settings-group voice-settings">
+                <h2>Voice</h2>
+                <label class="settings-field">Voice type <select id="voice-gender" class="custom-select"><option value="female">Female</option><option value="male">Male</option></select></label>
+                <label class="settings-field">Speed <select id="voice-speed" class="custom-select"><option value="normal">Normal</option><option value="slow">Slow</option></select></label>
                 <label style="display:flex; gap:10px; margin-top:10px; color:var(--muted); font-size:12px;"><input id="voice-on-card" type="checkbox" /> Speak when card appears</label>
                 <label style="display:flex; gap:10px; margin-top:10px; color:var(--muted); font-size:12px;"><input id="voice-on-flip" type="checkbox" /> Speak when card flips</label>
               </section>
@@ -88,12 +78,9 @@
 
         <!-- STUDY VIEW -->
         <section class="view" id="study-view" hidden>
-          <div class="study-heading">
-            <div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1>A word at a time.</h1></div>
-          </div>
+          <div class="study-heading"><div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1>A word at a time.</h1></div></div>
           <div class="study-meta">
             <div class="study-set-controls">
-              <!-- CHỈNH LẠI CHỮ "BỘ THẺ" -->
               <label class="set-picker"><span class="deck-mark" style="font-weight: bold; color: var(--lime); margin-right: 8px;">Bộ thẻ:</span><select class="custom-select set-select" id="study-set-select"></select></label>
             </div>
             <div class="study-meta-tools">
@@ -126,27 +113,23 @@
           <div class="answer-area" id="answer-area">
             <div class="answer-actions">
               <button class="answer-button answer-review" id="review-button" type="button">
-                  <span class="answer-title">× Hard</span>
-                  <span class="answer-delay" id="hard-delay">Show in 15 sec</span>
+                  <span class="answer-title">× Hard</span><span class="answer-delay" id="hard-delay">Show in 15 sec</span>
               </button>
               <button class="answer-button answer-remember" id="remember-button" type="button">
-                  <span class="answer-title">✓ Easy</span>
-                  <span class="answer-delay" id="easy-delay">Show in 2 min</span>
+                  <span class="answer-title">✓ Easy</span><span class="answer-delay" id="easy-delay">Show in 2 min</span>
               </button>
             </div>
           </div>
 
           <section class="review-waiting" id="review-waiting" hidden>
-            <p class="eyebrow">REVIEW QUEUE</p>
-            <h2>Next card soon</h2>
+            <p class="eyebrow">REVIEW QUEUE</p><h2>Next card soon</h2>
             <p id="review-countdown" style="font-size: 24px; font-weight: bold; color: var(--lime); margin: 20px 0;"></p>
             <button class="restart-button" id="finish-early" type="button">Finish for now</button>
           </section>
 
           <section class="completion-panel" id="completion-panel" hidden>
             <span class="completion-mark" style="font-size: 40px; color: var(--lime);">✳</span>
-            <p class="eyebrow">THAT’S THE SET</p>
-            <h2>Nice work showing up.</h2>
+            <p class="eyebrow">THAT’S THE SET</p><h2>Nice work showing up.</h2>
             <p class="completion-copy" id="completion-copy" style="margin-bottom: 20px; color: var(--copy);"></p>
             <button class="restart-button" id="restart-button" type="button">Study this set again</button>
           </section>
@@ -154,9 +137,7 @@
 
         <!-- TEST VIEW -->
         <section class="view test-view" id="test-view" hidden>
-          <div class="study-heading" style="margin-bottom: 30px;">
-            <div><p class="eyebrow">TEST MODE</p><h1>Written Test.</h1></div>
-          </div>
+          <div class="study-heading" style="margin-bottom: 30px;"><div><p class="eyebrow">TEST MODE</p><h1>Written Test.</h1></div></div>
 
           <div id="test-setup-panel">
             <h2 style="margin-top: 0; color: var(--ink);">Cài đặt bài kiểm tra</h2>
@@ -164,7 +145,6 @@
               <label style="color: var(--muted); font-size: 13px;">Bộ từ:
                 <select id="test-set-select" class="custom-select set-select" style="width: 100%; margin-top: 10px;"></select>
               </label>
-              <!-- ĐÃ XÓA CLASS set-select ĐỂ KHÔNG BỊ TRÙNG VỚI DANH SÁCH TỪ -->
               <label style="color: var(--muted); font-size: 13px;">Loại câu hỏi:
                 <select id="test-type-select" class="custom-select" style="width: 100%; margin-top: 10px;">
                   <option value="meaning-word">Hỏi Định Nghĩa ➔ Điền Từ</option>
@@ -203,9 +183,7 @@
 
         <!-- GAME VIEW -->
         <section class="view game-view" id="game-view" hidden>
-          <div class="study-heading" style="margin-bottom: 30px;">
-            <div><p class="eyebrow">MINIGAME</p><h1>Crossword Puzzle.</h1></div>
-          </div>
+          <div class="study-heading" style="margin-bottom: 30px;"><div><p class="eyebrow">MINIGAME</p><h1>Crossword Puzzle.</h1></div></div>
 
           <div id="cw-setup-panel">
             <h2 style="margin-top: 0; color: var(--ink);">Tạo Ô Chữ Tự Động</h2>
@@ -213,7 +191,6 @@
               <label style="color: var(--muted); font-size: 13px;">Bộ từ:
                 <select id="cw-set-select" class="custom-select set-select" style="width: 100%; margin-top: 10px;"></select>
               </label>
-              <!-- ĐÃ XÓA CLASS set-select ĐỂ KHÔNG BỊ TRÙNG VỚI DANH SÁCH TỪ -->
               <label style="color: var(--muted); font-size: 13px;">Loại gợi ý:
                 <select id="cw-clue-type-select" class="custom-select" style="width: 100%; margin-top: 10px;">
                   <option value="meaning">Chỉ Định Nghĩa</option>
@@ -242,14 +219,8 @@
             <div class="cw-container" id="cw-grid-container"></div>
 
             <div class="cw-clues-wrapper">
-              <div class="cw-clue-box" id="cw-clues-across">
-                <h3>Hàng ngang (Across)</h3>
-                <ul class="cw-clue-list" id="cw-across-list"></ul>
-              </div>
-              <div class="cw-clue-box" id="cw-clues-down">
-                <h3>Hàng dọc (Down)</h3>
-                <ul class="cw-clue-list" id="cw-down-list"></ul>
-              </div>
+              <div class="cw-clue-box" id="cw-clues-across"><h3>Hàng ngang (Across)</h3><ul class="cw-clue-list" id="cw-across-list"></ul></div>
+              <div class="cw-clue-box" id="cw-clues-down"><h3>Hàng dọc (Down)</h3><ul class="cw-clue-list" id="cw-down-list"></ul></div>
             </div>
 
             <button id="cw-submit-btn" class="restart-button" style="width: 100%; margin-top: 30px; font-size: 18px; padding: 18px;">KIỂM TRA Ô CHỮ</button>
@@ -261,17 +232,17 @@
           </div>
         </section>
 
-        <!-- DICTIONARY VIEW -->
+        <!-- DICTIONARY VIEW (SỬA LẠI LAYOUT GÓC PHẢI) -->
         <section class="view words-view" id="words-view" hidden>
-          <div class="words-heading">
+          <div class="words-heading" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px;">
             <div><p class="eyebrow">YOUR DICTIONARY</p><h1>My words.</h1></div>
-            <div style="display:flex; flex-direction: column; align-items: flex-end;">
-                <select class="custom-select set-select" id="words-set-select" style="margin-bottom: 15px; min-width: 250px; font-size: 15px; padding: 12px;"></select>
-                <button class="restart-button" id="back-to-study" type="button" style="padding: 8px 20px; background: transparent; border-color: var(--lime); color: var(--lime);">Study this set ➔</button>
+            <div style="display:flex; gap: 15px; align-items: center;">
+                <select class="custom-select set-select" id="words-set-select" style="min-width: 200px;"></select>
+                <button class="restart-button" id="back-to-study" type="button">Study this set ➔</button>
             </div>
           </div>
           
-          <div class="list-tabs" role="tablist" style="margin-top: 20px;">
+          <div class="list-tabs" role="tablist" style="margin-top: 30px;">
             <button class="list-tab is-active" type="button" role="tab" aria-selected="true" data-category="all">All <span id="all-count"></span></button>
             <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="remembered"><span style="color:var(--lime)">✓</span> Remembered <span id="remembered-count"></span></button>
             <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="review"><span style="color:var(--rose)">×</span> Review <span id="review-count"></span></button>

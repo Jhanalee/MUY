@@ -19,9 +19,6 @@ var studyQueue = [], currentCardObj = null, totalCardsInSession = 0, completedCa
 var testQuestions = [], testMode = "meaning-word";
 var cwGridData = {}, cwWordsPlaced = [], cwCurrentDir = "H", cwCurrentWordId = null;
 
-// ==========================================
-// HÀM BẢO VỆ CHỐNG LỖI DOM
-// ==========================================
 function _el(s) { return document.querySelector(s); }
 function _txt(s, t) { var e = _el(s); if(e) e.textContent = t; }
 function _html(s, h) { var e = _el(s); if(e) e.innerHTML = h; }
@@ -29,7 +26,6 @@ function _hide(s) { var e = _el(s); if(e) e.hidden = true; }
 function _show(s) { var e = _el(s); if(e) e.hidden = false; }
 function _val(s, v) { var e = _el(s); if(e) e.value = v; }
 function _getVal(s) { var e = _el(s); return e ? e.value : ""; }
-function _bind(s, ev, cb) { var e = _el(s); if(e) e.addEventListener(ev, cb); }
 
 function activeSet() { return setsById.get(activeSetId) || allSets[0] || { id: "default", name: "Empty", cards: [] }; }
 function loadActiveSet() { try { return setsById.has(localStorage.getItem(activeSetStorageKey)) ? localStorage.getItem(activeSetStorageKey) : (allSets[0] ? allSets[0].id : "essentials"); } catch (e) { return allSets[0] ? allSets[0].id : "essentials"; } }
@@ -49,7 +45,6 @@ function setCardFace(isF) { var fc = _el("#flashcard"); if (!fc) return; isF ? f
 
 function updateSelectDropdowns() {
   document.querySelectorAll(".set-select").forEach(function(select) {
-    // Ngăn việc xóa nhầm option của "Loại câu hỏi" hoặc "Loại gợi ý"
     if(select.id !== "test-type-select" && select.id !== "cw-clue-type-select") {
         select.innerHTML = "";
         allSets.forEach(function(set) { var option = document.createElement("option"); option.value = set.id; option.textContent = set.name; select.appendChild(option); });
@@ -479,18 +474,17 @@ document.addEventListener("DOMContentLoaded", function() {
   document.addEventListener("keydown", function(e){ if(e.key==="Escape"){ var m=_el("#settings-menu"); if(m) m.open=false;} });
   _bind(".wordmark", "click", function(e){e.preventDefault();setView("home");});
   
-  // TÍNH NĂNG CHỐNG LIỆT THẺ & THOẢI MÁI COPY BÔI ĐEN CHỮ
-  var fc=_el("#flashcard"); 
-  if(fc){ 
+  // FIX LỖI THẺ KHÔNG LẬT BẰNG JS THUẦN
+  var fc = _el("#flashcard");
+  if(fc){
     fc.addEventListener("click", function(e){
-      // Không lật nếu bấm vào nút phát âm hoặc các nút bấm khác
-      if(e.target.closest("button") || e.target.tagName.toLowerCase() === "button") return; 
-      // Không lật nếu người dùng đang bôi đen text để copy
-      var sel = window.getSelection();
-      if (sel && sel.toString().trim().length > 0) return;
+      // Chặn lật thẻ khi bấm vào nút bấm, link hoặc khi đang bôi đen chữ
+      if(e.target.closest("button") || e.target.tagName.toLowerCase() === "button") return;
+      if(window.getSelection().toString().trim().length > 0) return;
       
-      setCardFace(!fc.classList.contains("is-flipped"));
-    }); 
+      var isCurrentlyFlipped = fc.classList.contains("is-flipped");
+      setCardFace(!isCurrentlyFlipped);
+    });
   }
   
   document.querySelectorAll(".set-select").forEach(function(s){ s.addEventListener("change", function(){changeSet(s.value);}); });
@@ -505,7 +499,6 @@ document.addEventListener("DOMContentLoaded", function() {
   
   _bind("#reset-progress", "click", function(){ if(confirm("Xóa toàn bộ tiến độ học tập trên máy này?")){ statusByWord={}; statusBySet={}; saveProgress(); alert("Đã reset."); window.location.reload(); }});
   
-  // Phím tắt bàn phím lật thẻ (Dấu cách)
   document.addEventListener("keydown", function(e){
     if(e.target instanceof HTMLElement && ["BUTTON","A","INPUT","TEXTAREA","SELECT"].indexOf(e.target.tagName)!==-1) return;
     var sv=_el("#study-view"), cs=_el("#card-scene"), ffc=_el("#flashcard");
