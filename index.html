@@ -3,73 +3,41 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#171916" />
+    <meta name="theme-color" content="#10120f" />
     <meta name="description" content="A focused space to study SAT vocabulary." />
-    <title>SAT Vocabulary Flashcards</title>
+    <title>SAT Vocabulary Master</title>
     
     <script>
-      window.onerror = function(msg, url, line) {
-        alert("BÁO LỖI HỆ THỐNG:\n" + msg + "\nTại dòng: " + line + "\nHãy chụp màn hình này lại!");
-      };
+      window.onerror = function(msg, url, line) { console.warn("Lỗi JS:", msg, "tại dòng:", line); };
     </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=14" />
-    
-    <style>
-      .test-question-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; transition: border-color 0.3s; }
-      .test-question-card.correct { border-color: var(--lime); border-width: 2px; }
-      .test-question-card.incorrect { border-color: var(--rose); border-width: 2px; }
-      .test-q-label { font-size: 12px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
-      .test-q-text { font-size: 18px; color: var(--ink); font-weight: 500; margin-bottom: 16px; line-height: 1.4; }
-      .test-q-input { width: 100%; box-sizing: border-box; padding: 12px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px; font-size: 15px; }
-      .test-q-input:disabled { opacity: 0.8; }
-      .test-feedback { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--selection-border); font-size: 14px; display: none; }
-      .test-question-card.submitted .test-feedback { display: block; }
-      
-      .cw-container { width: 100%; overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px; }
-      .cw-board { border-collapse: collapse; margin: 0 auto; }
-      .cw-cell { width: 34px; height: 34px; border: 1px solid var(--border); background: var(--ground); position: relative; padding: 0; }
-      .cw-cell.empty { border: none; background: transparent; }
-      .cw-input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; font-size: 18px; font-weight: bold; color: var(--ink); text-transform: uppercase; padding: 0; margin: 0; outline: none; cursor: pointer; }
-      .cw-input:focus { background: var(--ambient-glow); }
-      .cw-cell.active-word .cw-input { background: var(--line); }
-      .cw-cell.correct .cw-input { color: var(--lime); }
-      .cw-cell.incorrect .cw-input { color: var(--rose); }
-      .cw-number { position: absolute; top: 2px; left: 2px; font-size: 9px; color: var(--muted); pointer-events: none; }
-      
-      .cw-clues-wrapper { display: flex; flex-wrap: wrap; gap: 24px; text-align: left; }
-      .cw-clue-box { flex: 1; min-width: 250px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
-      .cw-clue-box h3 { margin-top: 0; color: var(--lime); font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-      .cw-clue-list { list-style: none; padding: 0; margin: 0; font-size: 13px; color: var(--copy); }
-      .cw-clue-item { margin-bottom: 10px; line-height: 1.4; padding: 6px; border-radius: 4px; transition: background 0.2s; }
-      .cw-clue-item.active { background: var(--line); color: var(--ink); }
-      .cw-clue-num { font-weight: bold; color: var(--ink); margin-right: 6px; }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css?v=999" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="wordmark" href="#home" aria-label="SAT vocabulary home"><span>SAT vocab</span></a>
+        <a class="wordmark" href="#home" aria-label="SAT vocabulary home"><span>SAT Vocab</span></a>
         <nav class="main-nav" aria-label="Main navigation">
           <button class="nav-link is-active" type="button" data-view="home">Sets</button>
           <button class="nav-link" type="button" data-view="study">Study</button>
           <button class="nav-link" type="button" data-view="test">Test</button>
           <button class="nav-link" type="button" data-view="game">Game</button>
-          <button class="nav-link" type="button" data-view="words">My words <span class="nav-count" id="total-count">08</span></button>
+          <button class="nav-link" type="button" data-view="words">My words</button>
+          <button class="nav-link" type="button" data-view="credit">Credit</button>
         </nav>
         <div class="topbar-tools">
           <details class="settings-menu" id="settings-menu">
             <summary class="settings-trigger" aria-label="Open settings" title="Settings">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
             </summary>
             <div class="settings-panel">
               <section class="settings-group" aria-labelledby="appearance-title">
                 <h2 id="appearance-title">Appearance</h2>
                 <label class="settings-field" for="theme-select">Theme
-                  <select id="theme-select"><option value="green">Green</option><option value="red">Red</option><option value="graphite">Grey / black</option></select>
+                  <select id="theme-select"><option value="green">Green (Lime)</option><option value="red">Red (Rose)</option><option value="graphite">Graphite (Blue)</option></select>
                 </label>
               </section>
               <section class="settings-group voice-settings" aria-labelledby="voice-title">
@@ -80,9 +48,8 @@
                 <label class="settings-field" for="voice-speed">Speed
                   <select id="voice-speed"><option value="normal">Normal</option><option value="slow">Slow</option></select>
                 </label>
-                <label class="settings-toggle"><input id="voice-on-card" type="checkbox" /><span>Speak when a card appears</span></label>
-                <label class="settings-toggle"><input id="voice-on-flip" type="checkbox" /><span>Speak when a card flips</span></label>
-                <p class="voice-note" id="voice-note">Uses an English voice available on this device.</p>
+                <label style="display:flex; gap:10px; margin-top:10px; color:var(--muted); font-size:12px;"><input id="voice-on-card" type="checkbox" /> Speak when card appears</label>
+                <label style="display:flex; gap:10px; margin-top:10px; color:var(--muted); font-size:12px;"><input id="voice-on-flip" type="checkbox" /> Speak when card flips</label>
               </section>
             </div>
           </details>
@@ -91,23 +58,20 @@
 
       <main>
         <!-- HOME VIEW -->
-        <section class="view home-view" id="home-view" aria-labelledby="home-title">
+        <section class="view home-view" id="home-view">
           <div class="home-heading">
-            <div><p class="eyebrow">SAT VOCABULARY</p><h1 id="home-title">Choose a set.</h1></div>
-            <div style="display: flex; gap: 12px; align-items: center;">
-              <p class="home-intro">Pick a collection, preview its words, then study at your pace.</p>
-              <button id="toggle-add-set-btn" type="button" class="restart-button" style="margin: 0; padding: 9px 14px; white-space: nowrap; font-size: 11px;">+ Create new set</button>
-            </div>
+            <div><p class="eyebrow">YOUR STUDY HUB</p><h1 id="home-title">Choose a set.</h1></div>
+            <button id="toggle-add-set-btn" type="button" class="restart-button">+ Create new set</button>
           </div>
 
-          <div id="custom-set-section" hidden style="margin-top: 24px; padding: 22px; background: var(--surface); border: 1px solid var(--selection-border); border-radius: 4px;">
-            <h3 style="margin-top: 0; color: var(--lime); font: 400 20px 'Newsreader', Georgia, serif;">Tạo Bộ Từ Vựng Mới</h3>
-            <input type="text" id="deck-title" placeholder="Tên bộ từ (Ví dụ: Bài Test số 1)" style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px;" />
-            <p style="font-size: 11px; color: var(--muted); margin-bottom: 6px;">Hỗ trợ dán chuẩn <b>kiki.txt</b> (Từ [tab] Nghĩa | /phiên âm/ | VD: ... | Đồng nghĩa: ...):</p>
-            <textarea id="import-input" rows="7" placeholder="Abate	Làm dịu đi, sụt giảm (v.) | /əˈbeɪt/ | VD: The storm finally abated." style="width: 100%; box-sizing: border-box; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px; font-family: inherit; font-size: 12px;"></textarea>
-            <div style="display: flex; gap: 10px; margin-top: 14px;">
-              <button id="btn-save-firebase" type="button" class="restart-button" style="margin: 0;">Lưu & Chia Sẻ Lên Server</button>
-              <button id="btn-cancel-create" type="button" class="restart-button" style="margin: 0; background: transparent; border-color: var(--border); color: var(--muted);">Đóng</button>
+          <div id="custom-set-section" hidden style="margin-top: 24px; padding: 30px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;">
+            <h3 style="margin-top: 0; color: var(--lime); font-size: 22px;">Tạo Bộ Từ Vựng Mới</h3>
+            <input type="text" id="deck-title" placeholder="Tên bộ từ (Ví dụ: Test Set)" />
+            <p style="font-size: 12px; color: var(--muted); margin: 12px 0 6px;">Format chuẩn <b>kiki.txt</b> (Từ [tab] Nghĩa | /phiên âm/ | VD: ... | Đồng nghĩa: ...):</p>
+            <textarea id="import-input" rows="7" placeholder="Abate	Làm dịu đi (v.) | /əˈbeɪt/ | VD: The storm abated."></textarea>
+            <div style="display: flex; gap: 12px; margin-top: 20px;">
+              <button id="btn-save-firebase" type="button" class="restart-button">Lưu Lên Server</button>
+              <button id="btn-cancel-create" type="button" class="restart-button" style="background: transparent; color: var(--muted); border-color: var(--border);">Hủy</button>
             </div>
           </div>
 
@@ -115,8 +79,8 @@
           
           <section class="set-preview">
             <div class="preview-heading">
-              <div><p class="eyebrow">WORD PREVIEW <span class="preview-divider">/</span> <span id="preview-count">08 WORDS</span></p><h2 id="preview-title"></h2></div>
-              <button class="preview-start restart-button" id="preview-start" type="button"><span aria-hidden="true">→</span> Study this set</button>
+              <div><p class="eyebrow">WORD PREVIEW <span class="preview-divider">/</span> <span id="preview-count"></span></p><h2 id="preview-title"></h2></div>
+              <button class="preview-start restart-button" id="preview-start" type="button">Study this set ➔</button>
             </div>
             <ol class="preview-list" id="preview-list"></ol>
           </section>
@@ -125,20 +89,17 @@
         <!-- STUDY VIEW -->
         <section class="view" id="study-view" hidden>
           <div class="study-heading">
-            <div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1 id="study-title">A word at a time.</h1></div>
-            <p class="session-note" id="session-note">Take a breath. There’s no rush.</p>
+            <div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1>A word at a time.</h1></div>
           </div>
           <div class="study-meta">
             <div class="study-set-controls">
               <label class="set-picker"><span class="deck-mark">✳</span><select class="set-select" id="study-set-select"></select></label>
-              <span class="set-progress" id="study-set-progress"></span>
             </div>
             <div class="study-meta-tools">
               <div class="study-order">
                 <button class="study-order-button is-active" type="button" data-study-order="alphabetical">A–Z</button>
                 <button class="study-order-button" type="button" data-study-order="random">Shuffle</button>
               </div>
-              <span class="progress-label" id="progress-label">01 <span>/</span> 08</span>
             </div>
           </div>
           <div class="progress-track" id="progress-track"><span id="progress-fill"></span></div>
@@ -146,147 +107,131 @@
           <div class="card-scene" id="card-scene">
             <article class="flashcard" id="flashcard" tabindex="0">
               <div class="card-face card-front" id="card-front">
-                <div class="card-topline"><span class="card-index" id="card-index">01 <span>/ 08</span></span><span class="tap-hint"><span>↗</span> Tap to reveal</span></div>
-                <div class="front-wording"><span class="part-of-speech" id="front-pos">WORD</span><h2 id="front-word"></h2><p class="transcription" id="front-phonetic"></p></div>
-                <div class="card-footline"><span class="card-set-name">SET</span></div>
+                <div class="card-topline"><span class="card-index" id="card-index"></span><span class="tap-hint"><span>↗</span> Tap to reveal</span></div>
+                <div class="front-wording"><span class="part-of-speech" id="front-pos"></span><h2 id="front-word"></h2><p class="transcription" id="front-phonetic"></p></div>
+                <div class="card-footline"><span class="card-set-name"></span></div>
               </div>
               <div class="card-face card-back" id="card-back" aria-hidden="true">
                 <div class="card-topline"><span class="back-label"><span class="back-dot"></span> THE MEANING</span><span class="back-word" id="back-word"></span></div>
                 <div class="back-content">
-                  <p class="translation" id="back-translation"></p><div class="detail-rule"></div>
-                  <span class="detail-label">CLOSEST IN MEANING</span><p class="synonyms" id="back-synonyms"></p>
-                  <span class="detail-label">IN CONTEXT</span><p class="example" id="back-example"></p>
+                  <p class="translation" id="back-translation"></p>
+                  <span class="detail-label">SYNONYMS</span><p class="synonyms" id="back-synonyms"></p>
+                  <span class="detail-label">CONTEXT</span><p class="example" id="back-example"></p>
                 </div>
-                <div class="card-footline"><span class="card-set-name">SET</span></div>
+                <div class="card-footline"><span class="card-set-name"></span></div>
               </div>
             </article>
           </div>
 
           <div class="answer-area" id="answer-area">
             <div class="answer-actions">
-              <button class="answer-button answer-review" id="review-button" type="button"><span class="answer-icon">×</span><span class="answer-copy"><span class="answer-title">Hard</span><span class="answer-delay" id="hard-delay">Show in 15 sec</span></span><kbd>←</kbd></button>
-              <button class="answer-button answer-remember" id="remember-button" type="button"><span class="answer-icon">✓</span><span class="answer-copy"><span class="answer-title">Easy</span><span class="answer-delay" id="easy-delay">Show in 2 min</span></span><kbd>→</kbd></button>
+              <button class="answer-button answer-review" id="review-button" type="button"><span class="answer-icon">×</span><span class="answer-copy"><span class="answer-title">Hard</span><span class="answer-delay" id="hard-delay">Show in 15 sec</span></span></button>
+              <button class="answer-button answer-remember" id="remember-button" type="button"><span class="answer-icon">✓</span><span class="answer-copy"><span class="answer-title">Easy</span><span class="answer-delay" id="easy-delay">Show in 2 min</span></span></button>
             </div>
-            <p class="keyboard-hint">FLIP WITH <kbd>SPACE</kbd></p>
           </div>
 
           <section class="review-waiting" id="review-waiting" hidden>
             <p class="eyebrow">REVIEW QUEUE</p>
             <h2>Next card soon</h2>
-            <p id="review-countdown"></p>
+            <p id="review-countdown" style="font-size: 24px; font-weight: bold; color: var(--lime); margin: 20px 0;"></p>
             <button class="restart-button" id="finish-early" type="button">Finish for now</button>
           </section>
 
           <section class="completion-panel" id="completion-panel" hidden>
-            <span class="completion-mark">✳</span><p class="eyebrow">THAT’S THE SET</p>
-            <h2>Nice work showing up.</h2><p class="completion-copy" id="completion-copy"></p>
-            <button class="restart-button" id="restart-button" type="button"><span>↺</span> Study this set again</button>
+            <span class="completion-mark" style="font-size: 40px; color: var(--lime);">✳</span>
+            <p class="eyebrow">THAT’S THE SET</p>
+            <h2>Nice work showing up.</h2>
+            <p class="completion-copy" id="completion-copy" style="margin-bottom: 20px; color: var(--copy);"></p>
+            <button class="restart-button" id="restart-button" type="button">Study this set again</button>
           </section>
         </section>
 
         <!-- TEST VIEW -->
         <section class="view test-view" id="test-view" hidden>
-          <div class="study-heading" style="margin-bottom: 24px;">
-            <div><p class="eyebrow">TEST MODE</p><h1 id="test-heading-title">Custom Written Test.</h1></div>
+          <div class="study-heading" style="margin-bottom: 30px;">
+            <div><p class="eyebrow">TEST MODE</p><h1>Written Test.</h1></div>
           </div>
 
-          <!-- SETUP TEST -->
-          <div id="test-setup-panel" style="background: var(--surface); padding: 24px; border-radius: 8px; border: 1px solid var(--border);">
-            <h2 style="margin-top: 0; font-size: 18px; color: var(--ink);">Chuẩn bị bài kiểm tra</h2>
-            <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
-              <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">Bộ từ cần kiểm tra:
-                <select id="test-set-select" class="set-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;"></select>
+          <div id="test-setup-panel">
+            <h2 style="margin-top: 0; color: var(--ink);">Cài đặt bài kiểm tra</h2>
+            <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px; text-align: left;">
+              <label style="color: var(--muted); font-size: 13px;">Bộ từ:
+                <select id="test-set-select" class="set-select" style="width: 100%;"></select>
               </label>
-
-              <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">Bạn muốn được hỏi bằng gì?
-                <select id="test-type-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
-                  <option value="meaning-word">Hỏi Định Nghĩa ➔ Điền Từ Vựng</option>
-                  <option value="word-meaning">Hỏi Từ Vựng ➔ Điền Định Nghĩa</option>
-                  <option value="synonym-word">Hỏi Từ Đồng Nghĩa ➔ Điền Từ Vựng</option>
-                  <option value="word-synonym">Hỏi Từ Vựng ➔ Điền Từ Đồng Nghĩa</option>
+              <label style="color: var(--muted); font-size: 13px;">Loại câu hỏi:
+                <select id="test-type-select" style="width: 100%;">
+                  <option value="meaning-word">Hỏi Định Nghĩa ➔ Điền Từ</option>
+                  <option value="word-meaning">Hỏi Từ ➔ Điền Định Nghĩa</option>
+                  <option value="synonym-word">Hỏi Đồng Nghĩa ➔ Điền Từ</option>
                 </select>
               </label>
-
-              <div style="display: flex; gap: 12px;">
-                <label style="flex: 1; display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">Từ số:
-                  <input type="number" id="test-start-idx" value="1" min="1" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
+              <div style="display: flex; gap: 15px;">
+                <label style="flex: 1; color: var(--muted); font-size: 13px;">Từ số:
+                  <input type="number" id="test-start-idx" value="1" min="1" style="width: 100%;">
                 </label>
-                <label style="flex: 1; display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">Đến số:
-                  <input type="number" id="test-end-idx" value="10" min="1" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
+                <label style="flex: 1; color: var(--muted); font-size: 13px;">Đến số:
+                  <input type="number" id="test-end-idx" value="10" min="1" style="width: 100%;">
                 </label>
               </div>
-
-              <button id="test-start-btn" class="restart-button" style="margin-top: 8px;">Tạo bài kiểm tra ngay</button>
+              <button id="test-start-btn" class="restart-button">Bắt đầu thi</button>
             </div>
           </div>
 
-          <!-- RUN TEST -->
           <div id="test-run-panel" hidden>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-              <span id="test-status-text" style="font-size: 14px; color: var(--muted); font-weight: 500;">Đang làm bài...</span>
-              <button id="test-abort-btn" style="background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Hủy bài</button>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+              <span style="color: var(--lime); font-weight: 600;">Đang làm bài...</span>
+              <button id="test-abort-btn" class="restart-button" style="padding: 6px 15px; background: transparent; border-color: var(--border); color: var(--muted);">Hủy bài</button>
             </div>
-            
             <div id="test-questions-container"></div>
-            
-            <button id="test-submit-btn" class="restart-button" style="width: 100%; margin-top: 24px; font-size: 16px; padding: 14px; justify-content: center;">NỘP BÀI KIỂM TRA</button>
+            <button id="test-submit-btn" class="restart-button" style="width: 100%; margin-top: 30px; font-size: 18px; padding: 18px;">NỘP BÀI</button>
           </div>
 
-          <!-- SUMMARY TEST -->
-          <div id="test-result-summary" hidden style="margin-bottom: 30px; text-align: center; background: var(--surface); padding: 30px 20px; border-radius: 8px; border: 1px solid var(--border);">
-            <span class="completion-mark" style="font-size: 40px; color: var(--lime); display: block; margin-bottom: 12px;">✳</span>
-            <h2 style="margin-top: 0; color: var(--ink); margin-bottom: 8px;">Đã nộp bài!</h2>
-            <p style="font-size: 16px; color: var(--muted); margin-bottom: 24px;">Bạn làm đúng <b id="test-final-score" style="color: var(--ink); font-size: 22px;">0</b> / <b id="test-final-total" style="color: var(--ink); font-size: 20px;">10</b> câu.</p>
-            <button id="test-retry-btn" class="restart-button" style="margin: 0 auto;">Làm lại bài mới</button>
+          <div id="test-result-summary" hidden style="background: var(--surface); padding: 50px; border-radius: 16px; border: 1px solid var(--border); text-align: center; margin-top: 30px;">
+            <span style="font-size: 50px; color: var(--lime); display: block; margin-bottom: 20px;">✅</span>
+            <h2 style="font-size: 30px; margin: 0 0 10px;">Hoàn thành!</h2>
+            <p style="font-size: 20px; color: var(--muted); margin-bottom: 30px;">Điểm: <b id="test-final-score" style="color: var(--lime);"></b> / <b id="test-final-total"></b></p>
+            <button id="test-retry-btn" class="restart-button">Làm lại bài mới</button>
           </div>
         </section>
 
-        <!-- GAME VIEW (CROSSWORD) -->
+        <!-- GAME VIEW -->
         <section class="view game-view" id="game-view" hidden>
-          <div class="study-heading" style="margin-bottom: 24px;">
-            <div><p class="eyebrow">MINIGAME</p><h1 id="game-heading-title">Crossword Puzzle.</h1></div>
+          <div class="study-heading" style="margin-bottom: 30px;">
+            <div><p class="eyebrow">MINIGAME</p><h1>Crossword Puzzle.</h1></div>
           </div>
 
-          <!-- SETUP GAME -->
-          <div id="cw-setup-panel" style="background: var(--surface); padding: 24px; border-radius: 8px; border: 1px solid var(--border);">
-            <h2 style="margin-top: 0; font-size: 18px; color: var(--ink);">Tạo ô chữ tự động</h2>
-            <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
-              <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">Bộ từ:
-                <select id="cw-set-select" class="set-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;"></select>
+          <div id="cw-setup-panel">
+            <h2 style="margin-top: 0; color: var(--ink);">Tạo Ô Chữ Tự Động</h2>
+            <div style="display: flex; flex-direction: column; gap: 20px; margin-top: 20px; text-align: left;">
+              <label style="color: var(--muted); font-size: 13px;">Bộ từ:
+                <select id="cw-set-select" class="set-select" style="width: 100%;"></select>
               </label>
-
-              <!-- MỚI: TÙY CHỌN GỢI Ý CHO CROSSWORD -->
-              <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">Dạng Gợi ý (Clues):
-                <select id="cw-clue-type-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
-                  <option value="meaning">Chỉ hiển thị Định nghĩa (Mặc định)</option>
-                  <option value="synonym">Chỉ hiển thị Từ đồng nghĩa</option>
-                  <option value="both">Hiển thị Định nghĩa + Từ đồng nghĩa</option>
+              <label style="color: var(--muted); font-size: 13px;">Loại gợi ý:
+                <select id="cw-clue-type-select" style="width: 100%;">
+                  <option value="meaning">Chỉ Định Nghĩa</option>
+                  <option value="synonym">Chỉ Đồng Nghĩa</option>
+                  <option value="both">Cả Định Nghĩa & Đồng Nghĩa</option>
                 </select>
               </label>
-
-              <div style="display: flex; gap: 12px;">
-                <label style="flex: 1; display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">Từ số:
-                  <input type="number" id="cw-start-idx" value="1" min="1" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
+              <div style="display: flex; gap: 15px;">
+                <label style="flex: 1; color: var(--muted); font-size: 13px;">Từ số:
+                  <input type="number" id="cw-start-idx" value="1" min="1" style="width: 100%;">
                 </label>
-                <label style="flex: 1; display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">Đến số:
-                  <input type="number" id="cw-end-idx" value="10" min="1" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
+                <label style="flex: 1; color: var(--muted); font-size: 13px;">Đến số:
+                  <input type="number" id="cw-end-idx" value="10" min="1" style="width: 100%;">
                 </label>
               </div>
-
-              <button id="cw-start-btn" class="restart-button" style="margin-top: 8px;">Bắt đầu chơi</button>
+              <button id="cw-start-btn" class="restart-button">Tạo lưới ô chữ</button>
             </div>
           </div>
 
-          <!-- RUN GAME -->
           <div id="cw-run-panel" hidden>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-              <span style="font-size: 14px; color: var(--muted); font-weight: 500;">Giải ô chữ để ghi nhớ từ vựng</span>
-              <button id="cw-abort-btn" style="background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Thoát Game</button>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+              <span style="color: var(--lime); font-weight: 600;">Giải mã từ vựng</span>
+              <button id="cw-abort-btn" class="restart-button" style="padding: 6px 15px; background: transparent; border-color: var(--border); color: var(--muted);">Thoát game</button>
             </div>
             
-            <div class="cw-container" id="cw-grid-container">
-              <!-- Bảng Ô Chữ sẽ được chèn vào đây -->
-            </div>
+            <div class="cw-container" id="cw-grid-container"></div>
 
             <div class="cw-clues-wrapper">
               <div class="cw-clue-box" id="cw-clues-across">
@@ -299,32 +244,50 @@
               </div>
             </div>
 
-            <button id="cw-submit-btn" class="restart-button" style="width: 100%; margin-top: 24px; font-size: 16px; padding: 14px; justify-content: center;">KIỂM TRA ĐÁP ÁN</button>
+            <button id="cw-submit-btn" class="restart-button" style="width: 100%; margin-top: 30px; font-size: 18px; padding: 18px;">KIỂM TRA Ô CHỮ</button>
             
-            <div id="cw-result-summary" hidden style="margin-top: 24px; text-align: center; background: var(--surface); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
-              <h2 id="cw-result-title" style="margin-top: 0; color: var(--lime); margin-bottom: 8px;"></h2>
-              <button id="cw-retry-btn" class="restart-button" style="margin: 0 auto;">Tạo ván mới</button>
+            <div id="cw-result-summary" hidden style="background: var(--surface); padding: 40px; border-radius: 16px; border: 1px solid var(--border); text-align: center; margin-top: 30px;">
+              <h2 id="cw-result-title" style="margin-top: 0; font-size: 24px; margin-bottom: 20px;"></h2>
+              <button id="cw-retry-btn" class="restart-button">Chơi ván khác</button>
             </div>
           </div>
         </section>
 
-        <!-- WORDS VIEW -->
+        <!-- DICTIONARY VIEW -->
         <section class="view words-view" id="words-view" hidden>
-          <div class="words-heading"><div><p class="eyebrow">YOUR PERSONAL COLLECTION</p><h1 id="words-title">My words<span class="heading-period">.</span></h1></div><div class="collection-actions"><div class="collection-set-controls"><label class="set-picker"><span class="visually-hidden">Choose a vocabulary set</span><select class="set-select" id="words-set-select"></select></label><span class="set-progress" id="words-set-progress"></span></div><button class="back-to-study" id="back-to-study" type="button"><span>←</span> Back to study</button></div></div>
-          <div class="list-tabs" role="tablist">
-            <button class="list-tab is-active" type="button" role="tab" aria-selected="true" data-category="all">All <span id="all-count">08</span></button>
-            <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="remembered"><span class="tab-mark tab-remembered">✓</span> Remembered <span id="remembered-count">00</span></button>
-            <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="review"><span class="tab-mark tab-review">×</span> Review <span id="review-count">00</span></button>
+          <div class="words-heading">
+            <div><p class="eyebrow">YOUR DICTIONARY</p><h1>My words.</h1></div>
+            <div style="display:flex; flex-direction: column; align-items: flex-end;">
+                <select class="set-select" id="words-set-select" style="margin-bottom: 10px;"></select>
+                <button class="restart-button" id="back-to-study" type="button" style="padding: 6px 16px; background: transparent; border-color: var(--border); color: var(--muted);">Back to study</button>
+            </div>
           </div>
-          <div class="word-list" id="word-list"></div>
+          
+          <div class="list-tabs" role="tablist">
+            <button class="list-tab is-active" type="button" role="tab" aria-selected="true" data-category="all">All <span id="all-count"></span></button>
+            <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="remembered"><span style="color:var(--lime)">✓</span> Remembered <span id="remembered-count"></span></button>
+            <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="review"><span style="color:var(--rose)">×</span> Review <span id="review-count"></span></button>
+          </div>
+          <div class="word-list" id="word-list" style="margin-top: 20px;"></div>
         </section>
+
+        <!-- MÀN HÌNH CREDIT KHỔNG LỒ -->
+        <section class="view credit-view" id="credit-view" hidden>
+            <h1 class="credit-title">ĐAY GĂNG</h1>
+            <p class="credit-subtitle">The Mastermind Developer</p>
+            <p style="color: var(--subtle); margin-top: 40px; font-size: 14px; max-width: 500px; line-height: 1.6;">"Designed with passion. Coded with persistence. Dedicated to all SAT warriors out there aiming for perfection."</p>
+        </section>
+
       </main>
-      <footer class="page-footer"><span>MAKE ROOM FOR NEW WORDS.</span><button class="reset-link" id="reset-progress" type="button">Reset progress</button></footer>
+      <footer class="page-footer">
+          <span>MAKE ROOM FOR NEW WORDS.</span>
+          <button class="restart-button" id="reset-progress" type="button" style="padding: 6px 12px; font-size: 10px; background: transparent; border-color: var(--rose); color: var(--rose);">Reset All Progress</button>
+      </footer>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="sets.js?v=14"></script>
-    <script src="app.js?v=14"></script>
+    <script src="sets.js?v=999"></script>
+    <script src="app.js?v=999"></script>
   </body>
 </html>
