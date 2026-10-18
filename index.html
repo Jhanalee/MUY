@@ -6,10 +6,20 @@
     <meta name="theme-color" content="#171916" />
     <meta name="description" content="A focused space to study SAT vocabulary." />
     <title>SAT Vocabulary Flashcards</title>
+    
+    <!-- Bộ dò lỗi khẩn cấp: Báo lỗi ngay lập tức nếu web bị kẹt -->
+    <script>
+      window.onerror = function(msg, url, line) {
+        alert("Phát hiện lỗi làm đơ web:\n" + msg + "\nTại dòng: " + line);
+      };
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    
+    <!-- Ép tải mới CSS (Phá Cache) -->
+    <link rel="stylesheet" href="styles.css?v=999" />
   </head>
   <body>
     <div class="app-shell">
@@ -23,7 +33,7 @@
         <div class="topbar-tools">
           <details class="settings-menu" id="settings-menu">
             <summary class="settings-trigger" aria-label="Open settings" title="Settings">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V4a1.7 1.7 0 1 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
             </summary>
             <div class="settings-panel">
               <section class="settings-group" aria-labelledby="appearance-title">
@@ -64,8 +74,8 @@
             <h3 style="margin-top: 0; color: var(--lime); font: 400 20px 'Newsreader', Georgia, serif;">Tạo Bộ Từ Vựng Mới</h3>
             <input type="text" id="deck-title" placeholder="Tên bộ từ (Ví dụ: Từ vựng của tôi)" style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px;" />
             
-            <p style="font-size: 11px; color: var(--muted); margin-bottom: 6px;">Hỗ trợ dán dạng <b>Từ - Nghĩa</b> hoặc chuẩn <b>kiki.txt</b> (Từ [tab] Nghĩa | /phiên âm/ | VD: ... | Đồng nghĩa: ...):</p>
-            <textarea id="import-input" rows="7" placeholder="Abate	Làm dịu đi, sụt giảm (v.) | /əˈbeɪt/ | VD: The storm finally abated. | Đồng nghĩa: diminish, subside&#10;Candid	Thẳng thắn, chân thật (adj.) | /ˈkændɪd/ | VD: Her candid feedback helped. | Đồng nghĩa: frank, honest&#10;aberrant - khác thường, lệch lạc" style="width: 100%; box-sizing: border-box; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px; font-family: inherit; font-size: 12px;"></textarea>
+            <p style="font-size: 11px; color: var(--muted); margin-bottom: 6px;">Hỗ trợ dán chuẩn <b>kiki.txt</b> (Từ [tab] Nghĩa | /phiên âm/ | VD: ... | Đồng nghĩa: ...):</p>
+            <textarea id="import-input" rows="7" placeholder="Abate	Làm dịu đi, sụt giảm (v.) | /əˈbeɪt/ | VD: The storm finally abated. | Đồng nghĩa: diminish, subside&#10;Candid	Thẳng thắn, chân thật (adj.) | /ˈkændɪd/ | VD: Her candid feedback helped. | Đồng nghĩa: frank, honest" style="width: 100%; box-sizing: border-box; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px; font-family: inherit; font-size: 12px;"></textarea>
             
             <div style="display: flex; gap: 10px; margin-top: 14px;">
               <button id="btn-save-firebase" type="button" class="restart-button" style="margin: 0;">
@@ -163,10 +173,10 @@
       <footer class="page-footer"><span>MAKE ROOM FOR NEW WORDS.</span><button class="reset-link" id="reset-progress" type="button">Reset progress</button></footer>
     </div>
 
-    <!-- Nhúng thư viện Firebase & file code đúng thứ tự trước khi đóng thẻ body -->
+    <!-- Ép tải mới Script (Phá Cache) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="sets.js"></script>
-    <script src="app.js"></script>
+    <script src="sets.js?v=999"></script>
+    <script src="app.js?v=999"></script>
   </body>
 </html>
