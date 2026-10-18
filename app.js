@@ -42,12 +42,18 @@ const supportsSpeech = "speechSynthesis" in window && "SpeechSynthesisUtterance"
 let activeSetId = loadActiveSet();
 let statusBySet = loadProgress();
 let statusByWord = statusBySet[activeSetId] || (statusBySet[activeSetId] = {});
-let currentIndex = 0;
-let studyOrder = activeSet().cards.map(function(entry) { return entry.word; });
 let sessionResults = { review: 0, remembered: 0 };
 let activeCategory = "all";
 let voiceSettings = loadVoiceSettings();
 let availableVoices = [];
+
+// --- BIẾN TOÀN CỤC CHO TÍNH NĂNG SHUFFLE VÀ 15S/2M ---
+let studyQueue = [];
+let currentCardObj = null;
+let totalCardsInSession = 0;
+let completedCardsInSession = 0;
+let waitingInterval = null;
+let currentOrderMode = "alphabetical"; // "alphabetical" | "random"
 
 function activeSet() {
   return setsById.get(activeSetId) || allSets[0] || { id: "default", name: "Empty", cards: [] };
@@ -215,8 +221,9 @@ function saveProgress() {
 }
 
 function currentWord() {
+  if (!currentCardObj) return null;
   const cards = activeSet().cards;
-  const found = cards.find(function(entry) { return entry.word === studyOrder[currentIndex]; });
+  const found = cards.find(function(entry) { return entry.word === currentCardObj.word; });
   return found || cards[0];
 }
 
@@ -268,8 +275,9 @@ function setCardFace(isFlipped) {
 function renderCard() {
   const entry = currentWord();
   if (!entry) return;
+  
   const cardIndex = document.querySelector("#card-index");
-  if (cardIndex) cardIndex.innerHTML = formatCount(currentIndex + 1) + " <span>/ " + formatCount(studyOrder.length) + "</span>";
+  if (cardIndex) cardIndex.innerHTML = formatCount(completedCardsInSession + 1) + " <span>/ " + formatCount(totalCardsInSession) + "</span>";
   
   const frontPos = document.querySelector("#front-pos");
   if (frontPos) frontPos.textContent = (entry.pos || "word").toUpperCase();
@@ -312,14 +320,14 @@ function renderCard() {
   }
   
   const progressLabel = document.querySelector("#progress-label");
-  if (progressLabel) progressLabel.innerHTML = formatCount(currentIndex + 1) + " <span>/</span> " + formatCount(studyOrder.length);
+  if (progressLabel) progressLabel.innerHTML = formatCount(completedCardsInSession + 1) + " <span>/</span> " + formatCount(totalCardsInSession);
   
   if (progressTrack) {
-    progressTrack.setAttribute("aria-valuemax", String(studyOrder.length));
-    progressTrack.setAttribute("aria-valuenow", String(currentIndex));
+    progressTrack.setAttribute("aria-valuemax", String(totalCardsInSession));
+    progressTrack.setAttribute("aria-valuenow", String(completedCardsInSession));
   }
   const fill = document.querySelector("#progress-fill");
-  if (fill) fill.style.width = ((currentIndex / (studyOrder.length || 1)) * 100) + "%";
+  if (fill) fill.style.width = ((completedCardsInSession / (totalCardsInSession || 1)) * 100) + "%";
   
   const revTally = document.querySelector("#review-tally");
   if (revTally) revTally.textContent = String(sessionResults.review);
@@ -327,26 +335,115 @@ function renderCard() {
   if (remTally) remTally.textContent = String(sessionResults.remembered);
   
   const sessNote = document.querySelector("#session-note");
-  if (sessNote) sessNote.textContent = currentIndex === 0 ? "Take a breath. There’s no rush." : "One small step at a time.";
+  if (sessNote) sessNote.textContent = completedCardsInSession === 0 ? "Take a breath. There’s no rush." : "One small step at a time.";
   
+  // Nâng cấp: Hiển thị nhãn thời gian tùy theo Step của thẻ
+  const easyDelay = document.querySelector("#easy-delay");
+  if (easyDelay) {
+    easyDelay.textContent = currentCardObj.step === 0 ? "Show in 2 min" : "Finish";
+  }
+
   renderSetProgress();
   setCardFace(false);
   if (voiceSettings.onCard && studyView && !studyView.hidden) speakWord(entry.word);
 }
 
+// --- THUẬT TOÁN ĐIỀU CHỈNH THỜI GIAN LẶP LẠI (15S / 2M) ---
 function gradeCard(status) {
-  const entry = currentWord();
-  if (!entry) return;
-  statusByWord[entry.word] = status;
-  sessionResults[status] += 1;
+  if (!currentCardObj) return;
+
+  if (status === "review") {
+    // Nhấn Khó (Hard) -> Đưa về Step 0, Hẹn 15 giây sau
+    sessionResults.review++;
+    statusByWord[currentCardObj.word] = "review";
+    currentCardObj.step = 0;
+    currentCardObj.availableAt = Date.now() + 15000;
+    studyQueue.push(currentCardObj);
+  } else if (status === "remembered") {
+    // Nhấn Dễ (Easy)
+    if (currentCardObj.step === 0) {
+      // Nếu mới học -> Nâng lên Step 1, Hẹn 2 phút sau
+      currentCardObj.step = 1;
+      currentCardObj.availableAt = Date.now() + 120000;
+      studyQueue.push(currentCardObj);
+    } else {
+      // Nếu đã ở Step 1 -> Tốt nghiệp! Loại khỏi hàng đợi.
+      sessionResults.remembered++;
+      statusByWord[currentCardObj.word] = "remembered";
+      completedCardsInSession++;
+    }
+  }
+
+  currentCardObj = null;
   saveProgress();
   renderSetProgress();
-  currentIndex += 1;
-  if (currentIndex >= studyOrder.length) {
+  renderNextCard(); // Rút thẻ tiếp theo trong hàng đợi
+}
+
+// --- HÀM TÌM THẺ TIẾP THEO TRONG HÀNG ĐỢI HOẶC CHỜ ---
+function renderNextCard() {
+  if (waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
+
+  // Nếu hàng đợi rỗng và không còn thẻ đang cầm -> Kết thúc
+  if (studyQueue.length === 0 && !currentCardObj) {
     showCompletion();
     return;
   }
-  renderCard();
+
+  const now = Date.now();
+  let nextIdx = -1;
+  // Tìm thẻ có thời gian khả dụng <= thời gian hiện tại
+  for (let i = 0; i < studyQueue.length; i++) {
+    if (studyQueue[i].availableAt <= now) {
+      nextIdx = i;
+      break;
+    }
+  }
+
+  if (nextIdx !== -1) {
+    // Có thẻ sẵn sàng -> Hiển thị màn hình Flashcard
+    const waitPanel = document.querySelector("#review-waiting");
+    if (waitPanel) waitPanel.hidden = true;
+    const cardScene = document.querySelector("#card-scene");
+    if (cardScene) cardScene.hidden = false;
+    const answerArea = document.querySelector("#answer-area");
+    if (answerArea) answerArea.hidden = false;
+
+    currentCardObj = studyQueue.splice(nextIdx, 1)[0];
+    renderCard();
+  } else {
+    // Tất cả các thẻ đều đang bị hẹn giờ trong tương lai -> Hiện đồng hồ đếm ngược
+    currentCardObj = null;
+    const cardScene = document.querySelector("#card-scene");
+    if (cardScene) cardScene.hidden = true;
+    const answerArea = document.querySelector("#answer-area");
+    if (answerArea) answerArea.hidden = true;
+    const waitPanel = document.querySelector("#review-waiting");
+    if (waitPanel) waitPanel.hidden = false;
+
+    // Tìm thời gian chờ ngắn nhất
+    let minTime = studyQueue[0].availableAt;
+    for (let j = 1; j < studyQueue.length; j++) {
+      if (studyQueue[j].availableAt < minTime) minTime = studyQueue[j].availableAt;
+    }
+
+    updateCountdown(minTime);
+    waitingInterval = setInterval(function() {
+      if (Date.now() >= minTime) {
+        renderNextCard(); // Đến giờ thì tự động load thẻ ra
+      } else {
+        updateCountdown(minTime);
+      }
+    }, 1000);
+  }
+}
+
+function updateCountdown(targetTime) {
+  const diff = Math.max(0, Math.ceil((targetTime - Date.now()) / 1000));
+  const m = String(Math.floor(diff / 60)).padStart(2, '0');
+  const s = String(diff % 60).padStart(2, '0');
+  const el = document.querySelector("#review-countdown");
+  if (el) el.textContent = m + ":" + s;
 }
 
 function showCompletion() {
@@ -355,30 +452,58 @@ function showCompletion() {
   if (cardScene) cardScene.hidden = true;
   const answerArea = document.querySelector("#answer-area");
   if (answerArea) answerArea.hidden = true;
+  const waitPanel = document.querySelector("#review-waiting");
+  if (waitPanel) waitPanel.hidden = true;
   const completionPanel = document.querySelector("#completion-panel");
   if (completionPanel) completionPanel.hidden = false;
   
   const progressLabel = document.querySelector("#progress-label");
-  if (progressLabel) progressLabel.innerHTML = formatCount(studyOrder.length) + " <span>/</span> " + formatCount(studyOrder.length);
+  if (progressLabel) progressLabel.innerHTML = formatCount(totalCardsInSession) + " <span>/</span> " + formatCount(totalCardsInSession);
   const fill = document.querySelector("#progress-fill");
   if (fill) fill.style.width = "100%";
-  if (progressTrack) progressTrack.setAttribute("aria-valuenow", String(studyOrder.length));
+  if (progressTrack) progressTrack.setAttribute("aria-valuenow", String(totalCardsInSession));
   
   const compCopy = document.querySelector("#completion-copy");
   if (compCopy) compCopy.textContent = sessionResults.remembered + " remembered · " + sessionResults.review + " to revisit. Every word gets easier with practice.";
 }
 
+// --- THUẬT TOÁN SHUFFLE (TRỘN THẺ) VÀ BẮT ĐẦU BÀI HỌC ---
 function startStudy() {
-  currentIndex = 0;
   sessionResults = { review: 0, remembered: 0 };
-  studyOrder = activeSet().cards.map(function(entry) { return entry.word; });
+  completedCardsInSession = 0;
+  const cards = activeSet().cards;
+  totalCardsInSession = cards.length;
+
+  let initialWords = cards.map(function(c) { return c.word; });
+  
+  // Tính năng Shuffle
+  if (currentOrderMode === "random") {
+    for (let i = initialWords.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = initialWords[i];
+      initialWords[i] = initialWords[j];
+      initialWords[j] = temp;
+    }
+  } else {
+    // Thứ tự A-Z
+    initialWords.sort(function(a, b) { return a.localeCompare(b); });
+  }
+
+  // Khởi tạo hàng đợi bài học (Tất cả bắt đầu từ Step 0)
+  studyQueue = initialWords.map(function(w) {
+    return {
+      word: w,
+      availableAt: 0,
+      step: 0
+    };
+  });
+
   const completionPanel = document.querySelector("#completion-panel");
   if (completionPanel) completionPanel.hidden = true;
-  const cardScene = document.querySelector("#card-scene");
-  if (cardScene) cardScene.hidden = false;
-  const answerArea = document.querySelector("#answer-area");
-  if (answerArea) answerArea.hidden = false;
-  renderCard();
+  const waitPanel = document.querySelector("#review-waiting");
+  if (waitPanel) waitPanel.hidden = true;
+  
+  renderNextCard();
 }
 
 function renderWords() {
@@ -472,40 +597,35 @@ function renderHome() {
     option.appendChild(progress);
     option.appendChild(arrow);
 
-    // --- NÚT XÓA (Chỉ xuất hiện trên bộ từ Firebase) ---
+    // --- NÚT XÓA CHÍNH THỨC ---
     if (set.id.startsWith("firebase-")) {
-      const delBtn = document.createElement("div");
+      option.style.position = "relative";
+      const delBtn = document.createElement("button");
       delBtn.textContent = "🗑 Xóa";
       delBtn.style.position = "absolute";
       delBtn.style.bottom = "12px";
       delBtn.style.right = "12px";
-      delBtn.style.fontSize = "10px";
-      delBtn.style.color = "var(--rose)";
+      delBtn.style.fontSize = "12px";
+      delBtn.style.color = "white";
       delBtn.style.padding = "4px 8px";
-      delBtn.style.border = "1px solid var(--rose-dark)";
+      delBtn.style.border = "none";
       delBtn.style.borderRadius = "4px";
-      delBtn.style.backgroundColor = "var(--surface)";
+      delBtn.style.backgroundColor = "red";
+      delBtn.style.cursor = "pointer";
       delBtn.style.zIndex = "10";
       
       delBtn.addEventListener("click", async function(e) {
-        e.stopPropagation(); // Ngăn mở bài học khi bấm xóa
+        e.stopPropagation(); // Ngăn mở bài học khi bấm vào xóa
         if (confirm("Bạn có chắc chắn muốn xóa vĩnh viễn bộ từ: " + set.name + "?")) {
           delBtn.textContent = "...";
           try {
             const realId = set.id.replace("firebase-", "");
             if (db) await db.collection("decks").doc(realId).delete();
             
-            // Xóa khỏi mảng dữ liệu tạm
             const idx = allSets.findIndex(function(s) { return s.id === set.id; });
             if (idx > -1) allSets.splice(idx, 1);
             setsById.delete(set.id);
-            
-            if (activeSetId === set.id) {
-              changeSet(allSets[0] ? allSets[0].id : "essentials");
-            } else {
-              renderHome();
-              updateSelectDropdowns();
-            }
+            renderHome();
           } catch(err) {
              alert("Lỗi khi xóa: " + err.message);
              delBtn.textContent = "🗑 Xóa";
@@ -514,7 +634,7 @@ function renderHome() {
       });
       option.appendChild(delBtn);
     }
-    // ----------------------------------------------------
+    // ----------------------------
 
     option.addEventListener("click", function() { changeSet(set.id); });
     setGrid.appendChild(option);
@@ -878,6 +998,34 @@ if (flashcard) {
   });
 }
 
+// BẮT SỰ KIỆN NÚT CHỌN THỨ TỰ (A-Z VÀ RANDOM)
+document.querySelectorAll(".study-order-button").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    // Đổi màu nút được chọn
+    document.querySelectorAll(".study-order-button").forEach(function(b) {
+      b.classList.remove("is-active");
+      b.setAttribute("aria-pressed", "false");
+    });
+    btn.classList.add("is-active");
+    btn.setAttribute("aria-pressed", "true");
+    
+    // Lưu lại chế độ và tải lại bài học
+    currentOrderMode = btn.dataset.studyOrder;
+    if (studyView && !studyView.hidden) {
+      startStudy();
+    }
+  });
+});
+
+// BẮT SỰ KIỆN NÚT FINISH (KẾT THÚC BÀI HỌC SỚM TRONG LÚC CHỜ)
+const finishEarlyBtn = document.querySelector("#finish-early");
+if (finishEarlyBtn) {
+  finishEarlyBtn.addEventListener("click", function() {
+    if (waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
+    showCompletion();
+  });
+}
+
 if (reviewButton) reviewButton.addEventListener("click", function() { gradeCard("review"); });
 if (rememberButton) rememberButton.addEventListener("click", function() { gradeCard("remembered"); });
 
@@ -918,7 +1066,7 @@ if (resetProg) {
     statusBySet[activeSetId] = statusByWord;
     sessionResults = { review: 0, remembered: 0 };
     saveProgress();
-    renderCard();
+    startStudy();
     renderHome();
     if (wordsView && !wordsView.hidden) renderWords();
   });
@@ -940,7 +1088,7 @@ document.addEventListener("keydown", function(event) {
 
 // Khởi chạy
 updateSelectDropdowns();
-renderCard();
+startStudy();
 renderWords();
 renderHome();
 syncOnlineDecks();
