@@ -49,7 +49,6 @@ var activeCategory = "all";
 var voiceSettings = loadVoiceSettings();
 var availableVoices = [];
 
-// --- BIẾN STUDY MODE ---
 var studyQueue = [];
 var currentCardObj = null;
 var totalCardsInSession = 0;
@@ -60,11 +59,9 @@ var sessionReviewWords = {};
 var sessionRememberedWords = {};
 var cardsSeenInSession = {}; 
 
-// --- BIẾN TEST MODE ---
 var testQuestions = []; 
 var testMode = "meaning-word";
 
-// --- BIẾN GAME CROSSWORD ---
 var cwGridData = {}; 
 var cwWordsPlaced = []; 
 var cwCurrentDir = "H"; 
@@ -266,6 +263,12 @@ function setView(view) {
   if (view === "words") renderWords();
   if (view === "test") updateTestRangeBounds();
   if (view === "game") updateCwRangeBounds();
+  
+  var cardScene = document.querySelector("#card-scene");
+  if (view === "study" && voiceSettings.onCard && cardScene && !cardScene.hidden) {
+    var entry = currentWord();
+    if (entry) speakWord(entry.word);
+  }
 }
 
 function currentWord() {
@@ -519,7 +522,6 @@ function showCompletion() {
   if (compCopy) compCopy.textContent = finalRemember + " remembered · " + finalReview + " to revisit.";
 }
 
-// KHÔI PHỤC LẠI HÀNG START STUDY ĐÃ MẤT
 function startStudy() {
   sessionReviewWords = {};
   sessionRememberedWords = {};
@@ -717,7 +719,7 @@ function submitFullTest() {
 
 
 // ==========================================
-// GAME CROSSWORD MODE 
+// GAME CROSSWORD MODE (SỬA LỖI & THÊM TÙY CHỌN CLUE)
 // ==========================================
 
 function updateCwRangeBounds() {
@@ -739,6 +741,9 @@ function generateCrossword() {
   var endInput = document.querySelector("#cw-end-idx");
   var startIdx = startInput ? (parseInt(startInput.value) || 1) : 1;
   var endIdx = endInput ? (parseInt(endInput.value) || 10) : 10;
+  
+  var clueTypeEl = document.querySelector("#cw-clue-type-select");
+  var clueType = clueTypeEl ? clueTypeEl.value : "meaning";
 
   var cards = activeSet().cards;
   var baseCards = cards.slice().sort(function(a, b) { return a.word.localeCompare(b.word); });
@@ -752,7 +757,20 @@ function generateCrossword() {
   for(var i=0; i<pool.length; i++) {
     var pureWord = cleanWordForGrid(pool[i].word);
     if(pureWord.length > 1) {
-      cwList.push({ id: i, rawWord: pool[i].word, word: pureWord, clue: pool[i].translation });
+      
+      // XỬ LÝ LOẠI GỢI Ý (CLUE) THEO LỰA CHỌN CỦA NGƯỜI DÙNG
+      var finalClue = pool[i].translation;
+      var hasSyns = pool[i].synonyms && pool[i].synonyms.length > 0;
+      var synStr = hasSyns ? pool[i].synonyms.join(", ") : "Không có từ đồng nghĩa";
+      
+      if (clueType === "synonym") {
+          finalClue = "Đồng nghĩa: " + synStr;
+          if (!hasSyns) finalClue = pool[i].translation; // Nếu k có đồng nghĩa thì trả về nghĩa gốc
+      } else if (clueType === "both") {
+          finalClue = pool[i].translation + " (Đồng nghĩa: " + synStr + ")";
+      }
+
+      cwList.push({ id: i, rawWord: pool[i].word, word: pureWord, clue: finalClue });
     }
   }
   if(cwList.length === 0) { alert("Các từ vựng không hợp lệ để tạo lưới."); return; }
@@ -894,35 +912,52 @@ function drawCrosswordGrid() {
         inp.type = "text";
         inp.className = "cw-input";
         inp.maxLength = 1;
+        
+        // KHÓA AUTOCOMPLETE ĐỂ CHỐNG DỒN CHỮ TRÊN MOBILE
+        inp.setAttribute("autocomplete", "off");
+        inp.setAttribute("autocorrect", "off");
+        inp.setAttribute("autocapitalize", "characters");
+        inp.setAttribute("spellcheck", "false");
+        
         inp.dataset.x = c;
         inp.dataset.y = r;
         inp.dataset.wids = cellData.wordIds.join(",");
         
+        // SỬA LỖI FOCUS (Chỉ đổi chiều khi người dùng CLICK trực tiếp)
+        inp.addEventListener("click", function(e) {
+           var wids = e.target.dataset.wids.split(",");
+           if (wids.length > 1 && document.activeElement === e.target) {
+               cwCurrentWordId = (cwCurrentWordId == parseInt(wids[0], 10)) ? parseInt(wids[1], 10) : parseInt(wids[0], 10);
+               cwCurrentDir = getWordById(cwCurrentWordId).dir;
+               highlightCurrentCwWord();
+           }
+        });
+
         inp.addEventListener("focus", function(e) {
            var wids = e.target.dataset.wids.split(",");
-           if (wids.length === 1) {
-             cwCurrentWordId = parseInt(wids[0], 10);
-             cwCurrentDir = getWordById(cwCurrentWordId).dir;
-           } else {
-             if (cwCurrentWordId != parseInt(wids[0], 10) && cwCurrentWordId != parseInt(wids[1], 10)) {
+           // Giữ nguyên chiều nếu ô giao nhau thuộc từ đang gõ dở
+           if (cwCurrentWordId === null || wids.indexOf(String(cwCurrentWordId)) === -1) {
                cwCurrentWordId = parseInt(wids[0], 10);
-             } else {
-               cwCurrentWordId = cwCurrentWordId == parseInt(wids[0], 10) ? parseInt(wids[1], 10) : parseInt(wids[0], 10);
-             }
-             cwCurrentDir = getWordById(cwCurrentWordId).dir;
+               cwCurrentDir = getWordById(cwCurrentWordId).dir;
            }
            highlightCurrentCwWord();
+           setTimeout(function() { e.target.select(); }, 10);
         });
 
         inp.addEventListener("keydown", function(e) {
           var cx = parseInt(e.target.dataset.x, 10);
           var cy = parseInt(e.target.dataset.y, 10);
           
-          if (e.key === "Backspace" && e.target.value === "") {
-             e.preventDefault();
-             var px = cx - (cwCurrentDir === 'H' ? 1 : 0);
-             var py = cy - (cwCurrentDir === 'V' ? 1 : 0);
-             focusCwCell(px, py);
+          if (e.key === "Backspace") {
+             if (e.target.value === "") {
+                 e.preventDefault();
+                 var px = cx - (cwCurrentDir === 'H' ? 1 : 0);
+                 var py = cy - (cwCurrentDir === 'V' ? 1 : 0);
+                 focusCwCell(px, py);
+             } else {
+                 e.target.value = ""; 
+                 e.preventDefault();
+             }
           } else if (e.key === "ArrowRight") { e.preventDefault(); focusCwCell(cx+1, cy); }
             else if (e.key === "ArrowLeft")  { e.preventDefault(); focusCwCell(cx-1, cy); }
             else if (e.key === "ArrowDown")  { e.preventDefault(); focusCwCell(cx, cy+1); }
@@ -930,11 +965,16 @@ function drawCrosswordGrid() {
         });
 
         inp.addEventListener("input", function(e) {
-          e.target.value = e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase();
-          if (e.target.value !== "") {
+          // ÉP CHỈ NHẬN DUY NHẤT 1 KÝ TỰ CUỐI CÙNG VỪA GÕ (CHỐNG DỒN CHỮ)
+          var val = e.target.value.replace(/[^a-zA-Z]/g, "").toUpperCase();
+          if (val.length > 0) {
+             val = val.charAt(val.length - 1); 
+             e.target.value = val;
              var nx = parseInt(e.target.dataset.x, 10) + (cwCurrentDir === 'H' ? 1 : 0);
              var ny = parseInt(e.target.dataset.y, 10) + (cwCurrentDir === 'V' ? 1 : 0);
              focusCwCell(nx, ny);
+          } else {
+             e.target.value = "";
           }
         });
 
@@ -1540,47 +1580,4 @@ document.querySelectorAll(".nav-link").forEach(function(button) {
 
 document.querySelectorAll(".list-tab").forEach(function(button) {
   button.addEventListener("click", function() {
-    activeCategory = button.dataset.category;
-    document.querySelectorAll(".list-tab").forEach(function(tab) {
-      var isActive = tab === button;
-      tab.classList.toggle("is-active", isActive);
-      tab.setAttribute("aria-selected", String(isActive));
-    });
-    renderWords();
-  });
-});
-
-var resetProg2 = document.querySelector("#reset-progress");
-if (resetProg2) {
-  resetProg2.addEventListener("click", function() {
-    if (Object.keys(statusByWord).length === 0) return;
-    statusByWord = {};
-    statusBySet[activeSetId] = statusByWord;
-    saveProgress();
-    startStudy();
-    renderHome();
-    if (wordsView && wordsView.hidden === false) renderWords();
-  });
-}
-
-document.addEventListener("keydown", function(event) {
-  if (event.target instanceof HTMLElement && ["BUTTON", "A", "INPUT", "TEXTAREA"].indexOf(event.target.tagName) !== -1) return;
-  if (event.target === flashcard) return;
-  var cardScene = document.querySelector("#card-scene");
-  if (!studyView || studyView.hidden || (cardScene && cardScene.hidden)) return;
-  
-  if (event.key === " ") {
-    event.preventDefault();
-    if (flashcard) setCardFace(!flashcard.classList.contains("is-flipped"));
-  }
-  if (event.key === "ArrowLeft") gradeCard("review");
-  if (event.key === "ArrowRight") gradeCard("remembered");
-});
-
-// Khởi chạy
-applyTheme(loadTheme());
-updateSelectDropdowns();
-startStudy();
-renderWords();
-renderHome();
-syncOnlineDecks();
+    activeCategory = button.
