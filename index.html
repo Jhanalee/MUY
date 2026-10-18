@@ -7,27 +7,20 @@
     <meta name="description" content="A focused space to study SAT vocabulary." />
     <title>SAT Vocabulary Flashcards</title>
     
+    <!-- Hệ thống báo lỗi khẩn cấp -->
     <script>
       window.onerror = function(msg, url, line) {
-        console.warn("Lỗi JS:", msg, "tại dòng:", line);
+        alert("BÁO LỖI HỆ THỐNG:\n" + msg + "\nTại dòng: " + line + "\nHãy chụp màn hình này lại!");
       };
     </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=999" />
+    <link rel="stylesheet" href="styles.css?v=11" />
     
     <style>
-      /* Giao diện dành riêng cho phần Kiểm Tra (Test) */
-      .test-question-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 20px;
-        transition: border-color 0.3s;
-      }
+      .test-question-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; transition: border-color 0.3s; }
       .test-question-card.correct { border-color: var(--lime); border-width: 2px; }
       .test-question-card.incorrect { border-color: var(--rose); border-width: 2px; }
       .test-q-label { font-size: 12px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
@@ -78,7 +71,7 @@
       </header>
 
       <main>
-        <!-- HOME VIEW (CHỌN BỘ TỪ) -->
+        <!-- HOME VIEW -->
         <section class="view home-view" id="home-view" aria-labelledby="home-title">
           <div class="home-heading">
             <div><p class="eyebrow">SAT VOCABULARY</p><h1 id="home-title">Choose a set.</h1></div>
@@ -92,9 +85,9 @@
 
           <div id="custom-set-section" hidden style="margin-top: 24px; padding: 22px; background: var(--surface); border: 1px solid var(--selection-border); border-radius: 4px;">
             <h3 style="margin-top: 0; color: var(--lime); font: 400 20px 'Newsreader', Georgia, serif;">Tạo Bộ Từ Vựng Mới</h3>
-            <input type="text" id="deck-title" placeholder="Tên bộ từ (Ví dụ: Bài Test số 1)" style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px;" />
+            <input type="text" id="deck-title" placeholder="Tên bộ từ (Ví dụ: Từ vựng của tôi)" style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px;" />
             <p style="font-size: 11px; color: var(--muted); margin-bottom: 6px;">Hỗ trợ dán chuẩn <b>kiki.txt</b> (Từ [tab] Nghĩa | /phiên âm/ | VD: ... | Đồng nghĩa: ...):</p>
-            <textarea id="import-input" rows="7" placeholder="Abate	Làm dịu đi, sụt giảm (v.) | /əˈbeɪt/ | VD: The storm finally abated. | Đồng nghĩa: diminish, subside" style="width: 100%; box-sizing: border-box; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px; font-family: inherit; font-size: 12px;"></textarea>
+            <textarea id="import-input" rows="7" placeholder="Abate	Làm dịu đi, sụt giảm (v.) | /əˈbeɪt/ | VD: The storm finally abated." style="width: 100%; box-sizing: border-box; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px; font-family: inherit; font-size: 12px;"></textarea>
             <div style="display: flex; gap: 10px; margin-top: 14px;">
               <button id="btn-save-firebase" type="button" class="restart-button" style="margin: 0;">Lưu & Chia Sẻ Lên Server</button>
               <button id="btn-cancel-create" type="button" class="restart-button" style="margin: 0; background: transparent; border-color: var(--border); color: var(--muted);">Đóng</button>
@@ -112,7 +105,7 @@
           </section>
         </section>
 
-        <!-- STUDY VIEW (HỌC THẺ NHỚ & LẶP LẠI 15s/2m) -->
+        <!-- STUDY VIEW -->
         <section class="view" id="study-view" aria-labelledby="study-title" hidden>
           <div class="study-heading">
             <div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1 id="study-title">A word at a time.</h1></div>
@@ -192,10 +185,10 @@
               <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
                 Bạn muốn được hỏi bằng gì?
                 <select id="test-type-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
-                  <option value="meaning-word">Hỏi Định Nghĩa ➔ Điền Từ Vựng (Khuyên dùng)</option>
+                  <option value="meaning-word">Hỏi Định Nghĩa ➔ Điền Từ Vựng</option>
                   <option value="word-meaning">Hỏi Từ Vựng ➔ Điền Định Nghĩa</option>
                   <option value="synonym-word">Hỏi Từ Đồng Nghĩa ➔ Điền Từ Vựng</option>
-                  <option value="word-synonym">Hỏi Từ Vựng ➔ Điền Một Từ Đồng Nghĩa</option>
+                  <option value="word-synonym">Hỏi Từ Vựng ➔ Điền Từ Đồng Nghĩa</option>
                 </select>
               </label>
 
@@ -238,7 +231,7 @@
           </div>
         </section>
 
-        <!-- WORDS VIEW (QUẢN LÝ TỪ VỰNG CÁ NHÂN) -->
+        <!-- WORDS VIEW -->
         <section class="view words-view" id="words-view" aria-labelledby="words-title" hidden>
           <div class="words-heading"><div><p class="eyebrow">YOUR PERSONAL COLLECTION</p><h1 id="words-title">My words<span class="heading-period">.</span></h1></div><div class="collection-actions"><div class="collection-set-controls"><label class="set-picker"><span class="visually-hidden">Choose a vocabulary set</span><select class="set-select" id="words-set-select" aria-label="Choose a vocabulary set"></select></label><span class="set-progress" id="words-set-progress"></span></div><button class="back-to-study" id="back-to-study" type="button"><span>←</span> Back to study</button></div></div>
           <div class="list-tabs" role="tablist" aria-label="Vocabulary categories">
@@ -254,7 +247,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="sets.js?v=999"></script>
-    <script src="app.js?v=999"></script>
+    <script src="sets.js?v=11"></script>
+    <script src="app.js?v=11"></script>
   </body>
 </html>
