@@ -9,17 +9,17 @@
     
     <script>
       window.onerror = function(msg, url, line) {
-        console.warn("Lỗi web:", msg, "tại dòng:", line);
+        console.warn("Lỗi JS:", msg, "tại dòng:", line);
       };
     </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=10" />
+    <link rel="stylesheet" href="styles.css?v=999" />
     
     <style>
-      /* CSS bổ sung riêng cho phần Test dạng danh sách */
+      /* Giao diện dành riêng cho phần Kiểm Tra (Test) */
       .test-question-card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -78,7 +78,7 @@
       </header>
 
       <main>
-        <!-- HOME VIEW -->
+        <!-- HOME VIEW (CHỌN BỘ TỪ) -->
         <section class="view home-view" id="home-view" aria-labelledby="home-title">
           <div class="home-heading">
             <div><p class="eyebrow">SAT VOCABULARY</p><h1 id="home-title">Choose a set.</h1></div>
@@ -92,9 +92,9 @@
 
           <div id="custom-set-section" hidden style="margin-top: 24px; padding: 22px; background: var(--surface); border: 1px solid var(--selection-border); border-radius: 4px;">
             <h3 style="margin-top: 0; color: var(--lime); font: 400 20px 'Newsreader', Georgia, serif;">Tạo Bộ Từ Vựng Mới</h3>
-            <input type="text" id="deck-title" placeholder="Tên bộ từ (Ví dụ: Từ vựng của tôi)" style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px;" />
+            <input type="text" id="deck-title" placeholder="Tên bộ từ (Ví dụ: Bài Test số 1)" style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px;" />
             <p style="font-size: 11px; color: var(--muted); margin-bottom: 6px;">Hỗ trợ dán chuẩn <b>kiki.txt</b> (Từ [tab] Nghĩa | /phiên âm/ | VD: ... | Đồng nghĩa: ...):</p>
-            <textarea id="import-input" rows="7" placeholder="Abate	Làm dịu đi, sụt giảm (v.) | /əˈbeɪt/ | VD: The storm finally abated. | Đồng nghĩa: diminish, subside&#10;Candid	Thẳng thắn, chân thật (adj.) | /ˈkændɪd/ | VD: Her candid feedback helped. | Đồng nghĩa: frank, honest" style="width: 100%; box-sizing: border-box; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px; font-family: inherit; font-size: 12px;"></textarea>
+            <textarea id="import-input" rows="7" placeholder="Abate	Làm dịu đi, sụt giảm (v.) | /əˈbeɪt/ | VD: The storm finally abated. | Đồng nghĩa: diminish, subside" style="width: 100%; box-sizing: border-box; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px; font-family: inherit; font-size: 12px;"></textarea>
             <div style="display: flex; gap: 10px; margin-top: 14px;">
               <button id="btn-save-firebase" type="button" class="restart-button" style="margin: 0;">Lưu & Chia Sẻ Lên Server</button>
               <button id="btn-cancel-create" type="button" class="restart-button" style="margin: 0; background: transparent; border-color: var(--border); color: var(--muted);">Đóng</button>
@@ -112,7 +112,7 @@
           </section>
         </section>
 
-        <!-- STUDY VIEW (Spaced Repetition) -->
+        <!-- STUDY VIEW (HỌC THẺ NHỚ & LẶP LẠI 15s/2m) -->
         <section class="view" id="study-view" aria-labelledby="study-title" hidden>
           <div class="study-heading">
             <div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1 id="study-title">A word at a time.</h1></div>
@@ -137,17 +137,17 @@
             <article class="flashcard" id="flashcard" tabindex="0" role="group" aria-label="Vocabulary card. Press Enter or Space to reveal the definition.">
               <div class="card-face card-front" id="card-front">
                 <div class="card-topline"><span class="card-index" id="card-index">01 <span>/ 08</span></span><span class="tap-hint"><span>↗</span> Tap to reveal</span></div>
-                <div class="front-wording"><span class="part-of-speech" id="front-pos">ADJECTIVE</span><h2 id="front-word">aberrant</h2><p class="transcription" id="front-phonetic">/əˈberənt/</p></div>
-                <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span></div>
+                <div class="front-wording"><span class="part-of-speech" id="front-pos">WORD</span><h2 id="front-word"></h2><p class="transcription" id="front-phonetic"></p></div>
+                <div class="card-footline"><span class="card-set-name">SET</span></div>
               </div>
               <div class="card-face card-back" id="card-back" aria-hidden="true">
-                <div class="card-topline"><span class="back-label"><span class="back-dot"></span> THE MEANING</span><span class="back-word" id="back-word">aberrant</span></div>
+                <div class="card-topline"><span class="back-label"><span class="back-dot"></span> THE MEANING</span><span class="back-word" id="back-word"></span></div>
                 <div class="back-content">
                   <p class="translation" id="back-translation"></p><div class="detail-rule"></div>
                   <span class="detail-label">CLOSEST IN MEANING</span><p class="synonyms" id="back-synonyms"></p>
                   <span class="detail-label">IN CONTEXT</span><p class="example" id="back-example"></p>
                 </div>
-                <div class="card-footline"><span class="card-set-name">SAT ESSENTIALS</span></div>
+                <div class="card-footline"><span class="card-set-name">SET</span></div>
               </div>
             </article>
           </div>
@@ -174,13 +174,13 @@
           </section>
         </section>
 
-        <!-- MÀN HÌNH TEST MỚI (KIỂM TRA TỔNG HỢP THEO DANH SÁCH) -->
+        <!-- TEST VIEW (MÀN HÌNH BÀI KIỂM TRA ĐIỀN TỪ) -->
         <section class="view test-view" id="test-view" aria-labelledby="test-heading-title" hidden>
           <div class="study-heading" style="margin-bottom: 24px;">
             <div><p class="eyebrow">TEST MODE</p><h1 id="test-heading-title">Custom Written Test.</h1></div>
           </div>
 
-          <!-- MÀN HÌNH CÀI ĐẶT (SETUP) -->
+          <!-- BẢNG CÀI ĐẶT BÀI KIỂM TRA -->
           <div id="test-setup-panel" style="background: var(--surface); padding: 24px; border-radius: 8px; border: 1px solid var(--border);">
             <h2 style="margin-top: 0; font-size: 18px; color: var(--ink);">Chuẩn bị bài kiểm tra</h2>
             <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
@@ -210,11 +210,11 @@
                 </label>
               </div>
 
-              <button id="test-start-btn" class="restart-button" style="margin-top: 8px;">Create Test</button>
+              <button id="test-start-btn" class="restart-button" style="margin-top: 8px;">Tạo bài kiểm tra ngay</button>
             </div>
           </div>
 
-          <!-- MÀN HÌNH LÀM BÀI (HIỂN THỊ CÙNG LÚC TẤT CẢ CÂU HỎI) -->
+          <!-- BẢNG LÀM BÀI -->
           <div id="test-run-panel" hidden>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
               <span id="test-status-text" style="font-size: 14px; color: var(--muted); font-weight: 500;">Đang làm bài...</span>
@@ -222,23 +222,23 @@
             </div>
             
             <div id="test-questions-container">
-              <!-- JS Sẽ đổ danh sách câu hỏi vào đây -->
+              <!-- JS Sẽ đổ danh sách form câu hỏi vào đây -->
             </div>
             
-            <button id="test-submit-btn" class="restart-button" style="width: 100%; margin-top: 24px; font-size: 16px; padding: 14px;">NỘP BÀI</button>
+            <button id="test-submit-btn" class="restart-button" style="width: 100%; margin-top: 24px; font-size: 16px; padding: 14px; justify-content: center;">NỘP BÀI KIỂM TRA</button>
           </div>
 
-          <!-- MÀN HÌNH KẾT QUẢ TỔNG (NẰM TRÊN CÙNG SAU KHI NỘP) -->
+          <!-- BẢNG TỔNG KẾT SAU KHI NỘP BÀI -->
           <div id="test-result-summary" hidden style="margin-bottom: 30px; text-align: center; background: var(--surface); padding: 30px 20px; border-radius: 8px; border: 1px solid var(--border);">
             <span class="completion-mark" style="font-size: 40px; color: var(--lime); display: block; margin-bottom: 12px;">✳</span>
             <h2 style="margin-top: 0; color: var(--ink); margin-bottom: 8px;">Đã nộp bài!</h2>
             <p style="font-size: 16px; color: var(--muted); margin-bottom: 24px;">Bạn làm đúng <b id="test-final-score" style="color: var(--ink); font-size: 22px;">0</b> / <b id="test-final-total" style="color: var(--ink); font-size: 20px;">10</b> câu.</p>
-            <button id="test-retry-btn" class="restart-button" style="margin: 0 auto;">Làm lại bài khác</button>
+            <button id="test-retry-btn" class="restart-button" style="margin: 0 auto;">Làm lại bài mới</button>
             <p style="font-size: 12px; color: var(--muted); margin-top: 16px;">Kéo xuống dưới để xem chi tiết từng câu và giải thích.</p>
           </div>
         </section>
 
-        <!-- WORDS VIEW -->
+        <!-- WORDS VIEW (QUẢN LÝ TỪ VỰNG CÁ NHÂN) -->
         <section class="view words-view" id="words-view" aria-labelledby="words-title" hidden>
           <div class="words-heading"><div><p class="eyebrow">YOUR PERSONAL COLLECTION</p><h1 id="words-title">My words<span class="heading-period">.</span></h1></div><div class="collection-actions"><div class="collection-set-controls"><label class="set-picker"><span class="visually-hidden">Choose a vocabulary set</span><select class="set-select" id="words-set-select" aria-label="Choose a vocabulary set"></select></label><span class="set-progress" id="words-set-progress"></span></div><button class="back-to-study" id="back-to-study" type="button"><span>←</span> Back to study</button></div></div>
           <div class="list-tabs" role="tablist" aria-label="Vocabulary categories">
