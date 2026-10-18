@@ -471,22 +471,56 @@ function renderHome() {
     option.appendChild(nameNode);
     option.appendChild(progress);
     option.appendChild(arrow);
+
+    // --- NÚT XÓA (Chỉ xuất hiện trên bộ từ Firebase) ---
+    if (set.id.startsWith("firebase-")) {
+      const delBtn = document.createElement("div");
+      delBtn.textContent = "🗑 Xóa";
+      delBtn.style.position = "absolute";
+      delBtn.style.bottom = "12px";
+      delBtn.style.right = "12px";
+      delBtn.style.fontSize = "10px";
+      delBtn.style.color = "var(--rose)";
+      delBtn.style.padding = "4px 8px";
+      delBtn.style.border = "1px solid var(--rose-dark)";
+      delBtn.style.borderRadius = "4px";
+      delBtn.style.backgroundColor = "var(--surface)";
+      delBtn.style.zIndex = "10";
+      
+      delBtn.addEventListener("click", async function(e) {
+        e.stopPropagation(); // Ngăn mở bài học khi bấm xóa
+        if (confirm("Bạn có chắc chắn muốn xóa vĩnh viễn bộ từ: " + set.name + "?")) {
+          delBtn.textContent = "...";
+          try {
+            const realId = set.id.replace("firebase-", "");
+            if (db) await db.collection("decks").doc(realId).delete();
+            
+            // Xóa khỏi mảng dữ liệu tạm
+            const idx = allSets.findIndex(function(s) { return s.id === set.id; });
+            if (idx > -1) allSets.splice(idx, 1);
+            setsById.delete(set.id);
+            
+            if (activeSetId === set.id) {
+              changeSet(allSets[0] ? allSets[0].id : "essentials");
+            } else {
+              renderHome();
+              updateSelectDropdowns();
+            }
+          } catch(err) {
+             alert("Lỗi khi xóa: " + err.message);
+             delBtn.textContent = "🗑 Xóa";
+          }
+        }
+      });
+      option.appendChild(delBtn);
+    }
+    // ----------------------------------------------------
+
     option.addEventListener("click", function() { changeSet(set.id); });
     setGrid.appendChild(option);
   });
 
   const selectedSet = activeSet();
-  const selectedStatuses = statusBySet[selectedSet.id] || {};
-  const selectedRemembered = Object.keys(selectedStatuses).filter(function(k) { return selectedStatuses[k] === "remembered"; }).length;
-  const selectedReview = Object.keys(selectedStatuses).filter(function(k) { return selectedStatuses[k] === "review"; }).length;
-
-  const summarySetName = document.querySelector("#summary-set-name");
-  if (summarySetName) summarySetName.textContent = selectedSet.name;
-  const summarySetProgress = document.querySelector("#summary-set-progress");
-  if (summarySetProgress) summarySetProgress.textContent = selectedRemembered + " / " + selectedSet.cards.length + " remembered";
-  const summaryGoal = document.querySelector("#summary-goal");
-  if (summaryGoal) summaryGoal.textContent = selectedReview > 0 ? selectedReview + " to review" : "Start your streak";
-
   const previewTitle = document.querySelector("#preview-title");
   if (previewTitle) previewTitle.textContent = selectedSet.name;
   const previewCount = document.querySelector("#preview-count");
@@ -611,7 +645,7 @@ if (btnCancelCreate) {
   });
 }
 
-// THUẬT TOÁN TÁCH DỮ LIỆU SIÊU CHÍNH XÁC
+// THUẬT TOÁN TÁCH DỮ LIỆU ĐẦY ĐỦ
 function parseRawVocabulary(text) {
   const lines = text.trim().split("\n");
   const cards = [];
