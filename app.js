@@ -34,6 +34,7 @@ const rememberButton = document.querySelector("#remember-button");
 const homeView = document.querySelector("#home-view");
 const studyView = document.querySelector("#study-view");
 const wordsView = document.querySelector("#words-view");
+const testView = document.querySelector("#test-view"); // NEW
 const progressTrack = document.querySelector("#progress-track");
 const themeStorageKey = "sat-vocab-theme-v1";
 const voiceSettingsStorageKey = "sat-vocab-voice-settings-v1";
@@ -46,18 +47,22 @@ let activeCategory = "all";
 let voiceSettings = loadVoiceSettings();
 let availableVoices = [];
 
-// --- BIẾN TOÀN CỤC CHO THUẬT TOÁN 15S/2M VÀ SHUFFLE ---
+// Biến cho Study Mode
 let studyQueue = [];
 let currentCardObj = null;
 let totalCardsInSession = 0;
 let completedCardsInSession = 0;
 let waitingInterval = null;
-let currentOrderMode = "alphabetical"; // "alphabetical" hoặc "random"
-
-// Bộ đếm theo dõi chính xác từng thẻ duy nhất
+let currentOrderMode = "alphabetical"; 
 let sessionReviewWords = {};
 let sessionRememberedWords = {};
 let cardsSeenInSession = {}; 
+
+// --- BIẾN CHO TEST MODE ---
+let testQuestions = [];
+let currentTestIdx = 0;
+let testScore = 0;
+let testMode = "meaning-word";
 
 function activeSet() {
   return setsById.get(activeSetId) || allSets[0] || { id: "default", name: "Empty", cards: [] };
@@ -279,27 +284,21 @@ function setCardFace(isFlipped) {
 // --- THUẬT TOÁN ĐIỀU KHIỂN RÚT THẺ VÀ HẸN GIỜ (15S / 2M) ---
 function gradeCard(status) {
   if (!currentCardObj) return;
-
   cardsSeenInSession[currentCardObj.word] = true;
 
   if (status === "review") {
-    // Nếu bấm Hard -> Hẹn thẻ quay lại sau 15 giây
     sessionReviewWords[currentCardObj.word] = true;
     delete sessionRememberedWords[currentCardObj.word];
     statusByWord[currentCardObj.word] = "review";
-    
     currentCardObj.step = 0;
     currentCardObj.availableAt = Date.now() + 15000;
-    studyQueue.push(currentCardObj); // Đưa lại vào hàng đợi
-    
+    studyQueue.push(currentCardObj);
   } else if (status === "remembered") {
     if (currentCardObj.step === 0) {
-      // Bấm Easy lần 1 -> Lên level, hẹn quay lại sau 2 phút
       currentCardObj.step = 1;
       currentCardObj.availableAt = Date.now() + 120000;
       studyQueue.push(currentCardObj);
     } else {
-      // Bấm Easy lần 2 (sau khi đã chờ 2 phút) -> Tốt nghiệp thẻ này!
       sessionRememberedWords[currentCardObj.word] = true;
       delete sessionReviewWords[currentCardObj.word];
       statusByWord[currentCardObj.word] = "remembered";
@@ -310,7 +309,7 @@ function gradeCard(status) {
   currentCardObj = null;
   saveProgress();
   renderSetProgress();
-  renderNextCard(); // Tìm thẻ phù hợp tiếp theo để rút
+  renderNextCard();
 }
 
 function renderNextCard() {
@@ -324,7 +323,6 @@ function renderNextCard() {
   const now = Date.now();
   let availableCards = [];
   
-  // Tìm TẤT CẢ các thẻ đã "đến giờ" xuất hiện
   for (let i = 0; i < studyQueue.length; i++) {
      if (studyQueue[i].availableAt <= now) {
         availableCards.push({ card: studyQueue[i], index: i });
@@ -333,20 +331,16 @@ function renderNextCard() {
 
   let nextIdx = -1;
   if (availableCards.length > 0) {
-     // KIẾN TRÚC MỚI: Luôn ưu tiên hiển thị các thẻ ôn tập (đã từng xem) lên trước thẻ mới tinh
      let reviews = availableCards.filter(function(item) { return item.card.availableAt > 0; });
      if (reviews.length > 0) {
-        // Nếu có nhiều thẻ ôn tập, bốc thẻ bị quá hạn lâu nhất
         reviews.sort(function(a, b) { return a.card.availableAt - b.card.availableAt; });
         nextIdx = reviews[0].index;
      } else {
-        // Nếu không có thẻ ôn tập nào, bốc thẻ mới tinh (vẫn giữ đúng thứ tự A-Z hoặc Shuffle)
         nextIdx = availableCards[0].index;
      }
   }
 
   if (nextIdx !== -1) {
-    // Có thẻ sẵn sàng -> Bật hiển thị flashcard
     const waitPanel = document.querySelector("#review-waiting");
     if (waitPanel) waitPanel.hidden = true;
     const cardScene = document.querySelector("#card-scene");
@@ -357,7 +351,6 @@ function renderNextCard() {
     currentCardObj = studyQueue.splice(nextIdx, 1)[0];
     renderCard();
   } else {
-    // Tất cả các thẻ đều đang bị kẹt hẹn giờ 15s/2m ở tương lai -> Bật màn hình đồng hồ chờ
     currentCardObj = null;
     const cardScene = document.querySelector("#card-scene");
     if (cardScene) cardScene.hidden = true;
@@ -366,7 +359,6 @@ function renderNextCard() {
     const waitPanel = document.querySelector("#review-waiting");
     if (waitPanel) waitPanel.hidden = false;
 
-    // Tìm thẻ có thời gian chờ ngắn nhất để đếm ngược
     let minTime = studyQueue[0].availableAt;
     for (let j = 1; j < studyQueue.length; j++) {
       if (studyQueue[j].availableAt < minTime) minTime = studyQueue[j].availableAt;
@@ -395,7 +387,6 @@ function renderCard() {
   const entry = currentWord();
   if (!entry) return;
   
-  // Tính toán số chỉ mục hiện tại (VD: thẻ số 1/10)
   let displayIndex = Object.keys(cardsSeenInSession).length;
   if (!cardsSeenInSession[entry.word]) displayIndex += 1;
   if (displayIndex > totalCardsInSession) displayIndex = totalCardsInSession;
@@ -454,13 +445,11 @@ function renderCard() {
   const fill = document.querySelector("#progress-fill");
   if (fill) fill.style.width = ((completedCardsInSession / (totalCardsInSession || 1)) * 100) + "%";
   
-  // Cập nhật bộ đếm thẻ chính xác
   const revTally = document.querySelector("#review-tally");
   if (revTally) revTally.textContent = String(Object.keys(sessionReviewWords).length);
   const remTally = document.querySelector("#remember-tally");
   if (remTally) remTally.textContent = String(Object.keys(sessionRememberedWords).length);
   
-  // Cập nhật nhãn Delay tùy theo thẻ đang ở Step 0 hay Step 1
   const easyDelay = document.querySelector("#easy-delay");
   if (easyDelay) {
     easyDelay.textContent = currentCardObj.step === 0 ? "Show in 2 min" : "Finish";
@@ -494,9 +483,7 @@ function showCompletion() {
   if (compCopy) compCopy.textContent = finalRemember + " remembered · " + finalReview + " to revisit. Every word gets easier with practice.";
 }
 
-// --- THUẬT TOÁN SHUFFLE (TRỘN BÀI) ĐƯỢC FIX LỖI ---
 function startStudy() {
-  // Làm sạch dữ liệu session
   sessionReviewWords = {};
   sessionRememberedWords = {};
   cardsSeenInSession = {};
@@ -504,10 +491,8 @@ function startStudy() {
 
   const cards = activeSet().cards;
   totalCardsInSession = cards.length;
-
   let initialWords = cards.map(function(c) { return c.word; });
   
-  // Trộn thẻ chính xác 100%
   if (currentOrderMode === "random") {
     for (let i = initialWords.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -516,20 +501,15 @@ function startStudy() {
       initialWords[j] = temp;
     }
   } else {
-    // Sắp xếp A-Z
     initialWords.sort(function(a, b) { return a.localeCompare(b); });
   }
 
-  // Khởi tạo hàng đợi với Step 0
-  studyQueue = initialWords.map(function(w) {
-    return { word: w, availableAt: 0, step: 0 };
-  });
+  studyQueue = initialWords.map(function(w) { return { word: w, availableAt: 0, step: 0 }; });
 
   const completionPanel = document.querySelector("#completion-panel");
   if (completionPanel) completionPanel.hidden = true;
   const waitPanel = document.querySelector("#review-waiting");
   if (waitPanel) waitPanel.hidden = true;
-  
   renderNextCard();
 }
 
@@ -624,7 +604,6 @@ function renderHome() {
     option.appendChild(progress);
     option.appendChild(arrow);
 
-    // --- NÚT XÓA CHÍNH THỨC ---
     if (set.id.startsWith("firebase-")) {
       option.style.position = "relative";
       const delBtn = document.createElement("button");
@@ -637,7 +616,7 @@ function renderHome() {
       delBtn.style.padding = "4px 8px";
       delBtn.style.border = "none";
       delBtn.style.borderRadius = "4px";
-      delBtn.style.backgroundColor = "red";
+      delBtn.style.backgroundColor = "var(--rose)";
       delBtn.style.cursor = "pointer";
       delBtn.style.zIndex = "10";
       
@@ -661,8 +640,6 @@ function renderHome() {
       });
       option.appendChild(delBtn);
     }
-    // ----------------------------
-
     option.addEventListener("click", function() { changeSet(set.id); });
     setGrid.appendChild(option);
   });
@@ -710,10 +687,26 @@ function updateSelectDropdowns() {
     });
     select.value = activeSetId;
   });
+  
+  // Tự động cập nhật giới hạn câu hỏi Test khi đổi bộ từ
+  updateTestRangeBounds();
+}
+
+function updateTestRangeBounds() {
+  const cards = activeSet().cards;
+  const maxVal = cards.length || 1;
+  const endInput = document.querySelector("#test-end-idx");
+  if (endInput) {
+    endInput.max = maxVal;
+    // Nếu giá trị hiện tại lớn hơn số từ thực tế, tự giảm xuống
+    if (parseInt(endInput.value) > maxVal || !endInput.value) {
+       endInput.value = maxVal;
+    }
+  }
 }
 
 function renderSetProgress() {
-  const selectors = [document.querySelector("#study-set-select"), document.querySelector("#words-set-select")];
+  const selectors = [document.querySelector("#study-set-select"), document.querySelector("#words-set-select"), document.querySelector("#test-set-select")];
   allSets.forEach(function(set) {
     const statuses = statusBySet[set.id] || {};
     const rememberedCount = Object.keys(statuses).filter(function(k) { return statuses[k] === "remembered"; }).length;
@@ -750,6 +743,7 @@ function changeSet(setId) {
     tab.classList.toggle("is-active", isActive);
     tab.setAttribute("aria-selected", String(isActive));
   });
+  updateTestRangeBounds();
   startStudy();
   renderWords();
   renderHome();
@@ -758,17 +752,23 @@ function changeSet(setId) {
 function setView(view) {
   const isHome = view === "home";
   const isStudy = view === "study";
+  const isWords = view === "words";
+  const isTest = view === "test";
+  
   if (homeView) homeView.hidden = !isHome;
   if (studyView) studyView.hidden = !isStudy;
-  if (wordsView) wordsView.hidden = isHome || isStudy;
+  if (wordsView) wordsView.hidden = !isWords;
+  if (testView) testView.hidden = !isTest;
+  
   document.querySelectorAll(".nav-link").forEach(function(button) {
     const isActive = button.dataset.view === view;
     button.classList.toggle("is-active", isActive);
     if (isActive) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   });
+  
   if (isHome) renderHome();
-  if (view === "words") renderWords();
+  if (isWords) renderWords();
   
   const cardScene = document.querySelector("#card-scene");
   if (isStudy && voiceSettings.onCard && cardScene && !cardScene.hidden) {
@@ -777,20 +777,223 @@ function setView(view) {
   }
 }
 
+// ==========================================
+// THUẬT TOÁN TEST (QUIZLET MODE)
+// ==========================================
+
+function normalizeStr(str) {
+  // Chuẩn hóa chuỗi: xóa dấu câu, khoảng trắng thừa và chuyển chữ thường
+  return (str || "").trim().toLowerCase().replace(/[.,!?;:()]/g, '');
+}
+
+function startTest() {
+  // Cập nhật cài đặt
+  testMode = document.querySelector("#test-type-select").value;
+  let startIdx = parseInt(document.querySelector("#test-start-idx").value) || 1;
+  let endIdx = parseInt(document.querySelector("#test-end-idx").value) || 10;
+  let shuffleMode = document.querySelector("#test-shuffle-select").value;
+
+  const cards = activeSet().cards;
+  
+  // Sắp xếp A-Z theo mặc định để lấy đúng vị trí
+  let baseCards = [...cards].sort(function(a, b) { return a.word.localeCompare(b.word); });
+  
+  startIdx = Math.max(1, startIdx);
+  endIdx = Math.max(startIdx, Math.min(baseCards.length, endIdx));
+
+  let pool = baseCards.slice(startIdx - 1, endIdx);
+
+  // Nếu chọn chế độ Đồng nghĩa, lọc bỏ các từ không có từ đồng nghĩa
+  if (testMode.includes("synonym")) {
+    pool = pool.filter(function(c) { return c.synonyms && c.synonyms.length > 0; });
+  }
+
+  if (pool.length === 0) {
+    alert("Dữ liệu không đủ! Nếu bạn chọn bài kiểm tra có 'Từ đồng nghĩa', hãy đảm bảo các từ trong khoảng bạn chọn có chứa từ đồng nghĩa.");
+    return;
+  }
+
+  // Shuffle nếu chọn Trộn
+  if (shuffleMode === "random") {
+    pool.sort(function() { return 0.5 - Math.random(); });
+  }
+
+  testQuestions = pool;
+  currentTestIdx = 0;
+  testScore = 0;
+
+  document.querySelector("#test-setup-panel").hidden = true;
+  document.querySelector("#test-run-panel").hidden = false;
+  document.querySelector("#test-result-panel").hidden = true;
+
+  renderTestQuestion();
+}
+
+function renderTestQuestion() {
+  const q = testQuestions[currentTestIdx];
+  document.querySelector("#test-progress-text").textContent = "Câu hỏi " + (currentTestIdx + 1) + " / " + testQuestions.length;
+  document.querySelector("#test-score-text").textContent = "Điểm: " + testScore;
+
+  let promptLabel = "Câu hỏi:";
+  let promptText = "";
+
+  if (testMode === "meaning-word") {
+    promptLabel = "Định nghĩa / Dịch nghĩa:";
+    promptText = q.translation;
+  } else if (testMode === "word-meaning") {
+    promptLabel = "Từ vựng (Hãy điền nghĩa của từ):";
+    promptText = q.word;
+  } else if (testMode === "synonym-word") {
+    promptLabel = "Các từ đồng nghĩa:";
+    promptText = q.synonyms.join(", ");
+  } else if (testMode === "word-synonym") {
+    promptLabel = "Từ vựng (Hãy điền 1 từ đồng nghĩa):";
+    promptText = q.word;
+  }
+
+  document.querySelector("#test-prompt-label").textContent = promptLabel;
+  document.querySelector("#test-question-text").textContent = promptText;
+  
+  const inputEl = document.querySelector("#test-input");
+  inputEl.value = "";
+  inputEl.style.borderColor = "var(--border)";
+  inputEl.disabled = false;
+  setTimeout(function() { inputEl.focus(); }, 50);
+
+  document.querySelector("#test-submit-btn").hidden = false;
+  document.querySelector("#test-feedback-block").hidden = true;
+  document.querySelector("#test-next-btn").hidden = true;
+}
+
+function checkTestAnswer(inputVal, type, card) {
+  const userStr = normalizeStr(inputVal);
+  if (!userStr) return false;
+
+  if (type === "meaning-word" || type === "synonym-word") {
+    return userStr === normalizeStr(card.word);
+  } 
+  else if (type === "word-meaning") {
+    // Nếu bắt điền nghĩa: chỉ cần nhập ít nhất 2 ký tự và có chứa trong câu nghĩa gốc là tự động pass
+    const defStr = normalizeStr(card.translation);
+    return userStr.length >= 2 && defStr.indexOf(userStr) !== -1;
+  } 
+  else if (type === "word-synonym") {
+    const syns = (card.synonyms || []).map(normalizeStr);
+    return syns.includes(userStr);
+  }
+  return false;
+}
+
+function submitTestAnswer() {
+  const inputEl = document.querySelector("#test-input");
+  const inputVal = inputEl.value;
+  const q = testQuestions[currentTestIdx];
+  const isCorrect = checkTestAnswer(inputVal, testMode, q);
+
+  if (isCorrect) testScore++;
+
+  // Cập nhật giao diện Trả lời
+  inputEl.disabled = true;
+  inputEl.style.borderColor = isCorrect ? "var(--lime)" : "var(--rose)";
+
+  const badge = document.querySelector("#test-result-badge");
+  badge.textContent = isCorrect ? "✅ CHÍNH XÁC" : "❌ CHƯA CHÍNH XÁC";
+  badge.style.color = isCorrect ? "var(--lime)" : "var(--rose)";
+
+  // Hiển thị đáp án đúng
+  let correctStr = "";
+  if (testMode === "meaning-word" || testMode === "synonym-word") correctStr = q.word;
+  if (testMode === "word-meaning") correctStr = q.translation;
+  if (testMode === "word-synonym") correctStr = (q.synonyms && q.synonyms.length) ? q.synonyms.join(", ") : "N/A";
+  
+  document.querySelector("#test-correct-ans").textContent = correctStr;
+  document.querySelector("#test-feedback-phonetic").textContent = q.phonetic || "N/A";
+  
+  const exContainer = document.querySelector("#test-feedback-example");
+  exContainer.innerHTML = "";
+  const nodes = highlightWord(q.example || "", q.word);
+  nodes.forEach(function(n) { exContainer.appendChild(n); });
+
+  document.querySelector("#test-submit-btn").hidden = true;
+  document.querySelector("#test-feedback-block").hidden = false;
+  document.querySelector("#test-next-btn").hidden = false;
+  
+  const nextBtn = document.querySelector("#test-next-btn");
+  if (currentTestIdx === testQuestions.length - 1) {
+    nextBtn.textContent = "Xem kết quả (Enter)";
+  } else {
+    nextBtn.textContent = "Câu tiếp theo (Enter)";
+  }
+  setTimeout(function() { nextBtn.focus(); }, 50);
+}
+
+function nextTestQuestion() {
+  currentTestIdx++;
+  if (currentTestIdx >= testQuestions.length) {
+    // Kết thúc test
+    document.querySelector("#test-run-panel").hidden = true;
+    document.querySelector("#test-result-panel").hidden = false;
+    document.querySelector("#test-final-score").textContent = testScore;
+    document.querySelector("#test-final-total").textContent = testQuestions.length;
+  } else {
+    renderTestQuestion();
+  }
+}
+
+// Bắt sự kiện bàn phím cho Test Mode
+const testInput = document.querySelector("#test-input");
+if (testInput) {
+  testInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitTestAnswer();
+    }
+  });
+}
+document.querySelector("#test-next-btn")?.addEventListener("click", nextTestQuestion);
+document.querySelector("#test-submit-btn")?.addEventListener("click", submitTestAnswer);
+document.querySelector("#test-start-btn")?.addEventListener("click", startTest);
+document.querySelector("#test-retry-btn")?.addEventListener("click", startTest);
+document.querySelector("#test-back-setup-btn")?.addEventListener("click", function() {
+  document.querySelector("#test-result-panel").hidden = true;
+  document.querySelector("#test-setup-panel").hidden = false;
+});
+
+// ==========================================
+
+// BẮT SỰ KIỆN NÚT CHỌN THỨ TỰ (A-Z VÀ RANDOM) - STUDY MODE
+document.querySelectorAll(".study-order-button").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    document.querySelectorAll(".study-order-button").forEach(function(b) {
+      b.classList.remove("is-active");
+      b.setAttribute("aria-pressed", "false");
+    });
+    btn.classList.add("is-active");
+    btn.setAttribute("aria-pressed", "true");
+    
+    currentOrderMode = btn.getAttribute("data-study-order");
+    if (studyView && !studyView.hidden) {
+      startStudy();
+    }
+  });
+});
+
+const finishEarlyBtn = document.querySelector("#finish-early");
+if (finishEarlyBtn) {
+  finishEarlyBtn.addEventListener("click", function() {
+    if (waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
+    showCompletion();
+  });
+}
+
 // Bật tắt form thêm bộ từ
 const customSetSection = document.querySelector("#custom-set-section");
-const toggleAddSetBtn = document.querySelector("#toggle-add-set-btn");
-if (toggleAddSetBtn) {
-  toggleAddSetBtn.addEventListener("click", function() {
-    if (customSetSection) customSetSection.hidden = !customSetSection.hidden;
-  });
-}
-const btnCancelCreate = document.querySelector("#btn-cancel-create");
-if (btnCancelCreate) {
-  btnCancelCreate.addEventListener("click", function() {
-    if (customSetSection) customSetSection.hidden = true;
-  });
-}
+document.querySelector("#toggle-add-set-btn")?.addEventListener("click", function() {
+  if (customSetSection) customSetSection.hidden = !customSetSection.hidden;
+});
+document.querySelector("#btn-cancel-create")?.addEventListener("click", function() {
+  if (customSetSection) customSetSection.hidden = true;
+});
 
 // THUẬT TOÁN TÁCH DỮ LIỆU ĐẦY ĐỦ
 function parseRawVocabulary(text) {
@@ -895,7 +1098,7 @@ if (btnSaveFirebase) {
       return;
     }
 
-    btnSaveFirebase.innerText = "Đang lưu lên hệ thống...";
+    btnSaveFirebase.innerText = "Đang lưu...";
     btnSaveFirebase.disabled = true;
 
     try {
@@ -914,7 +1117,7 @@ if (btnSaveFirebase) {
       await syncOnlineDecks();
     } catch (err) {
       console.error("Lỗi Firebase:", err);
-      alert("Lưu thất bại. Hãy chắc chắn Firestore Database ở trạng thái Test mode.");
+      alert("Lưu thất bại.");
       btnSaveFirebase.innerText = "Lưu & Chia Sẻ Lên Server";
       btnSaveFirebase.disabled = false;
     }
@@ -930,11 +1133,7 @@ async function syncOnlineDecks() {
       const data = doc.data();
       const onlineSetId = "firebase-" + doc.id;
       if (!setsById.has(onlineSetId)) {
-        const newSet = {
-          id: onlineSetId,
-          name: data.name,
-          cards: data.cards
-        };
+        const newSet = { id: onlineSetId, name: data.name, cards: data.cards };
         allSets.push(newSet);
         setsById.set(onlineSetId, newSet);
       }
@@ -947,121 +1146,10 @@ async function syncOnlineDecks() {
   }
 }
 
-// Thiết lập điều khiển
-const settingsMenu = document.querySelector("#settings-menu");
-const voiceSelect = document.querySelector("#voice-gender");
-const speedSelect = document.querySelector("#voice-speed");
-const onCardToggle = document.querySelector("#voice-on-card");
-const onFlipToggle = document.querySelector("#voice-on-flip");
-
-const themeSelect = document.querySelector("#theme-select");
-if (themeSelect) {
-  themeSelect.addEventListener("change", function(event) { applyTheme(event.target.value); });
-}
-applyTheme(loadTheme());
-
-if (voiceSelect) voiceSelect.value = voiceSettings.gender;
-if (speedSelect) speedSelect.value = voiceSettings.speed;
-if (onCardToggle) onCardToggle.checked = voiceSettings.onCard;
-if (onFlipToggle) onFlipToggle.checked = voiceSettings.onFlip;
-
-document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-on-flip").forEach(function(control) {
-  control.addEventListener("change", function() {
-    voiceSettings = {
-      gender: voiceSelect.value,
-      speed: speedSelect.value,
-      onCard: onCardToggle.checked,
-      onFlip: onFlipToggle.checked
-    };
-    saveVoiceSettings();
-    updateVoiceNote();
-  });
-});
-
-document.querySelectorAll(".listen-button").forEach(function(button) {
-  button.addEventListener("click", function(event) {
-    event.stopPropagation();
-    const entry = currentWord();
-    if (entry) speakWord(entry.word);
-  });
-});
-
-if (supportsSpeech) {
-  refreshVoices();
-  window.speechSynthesis.onvoiceschanged = refreshVoices;
-} else {
-  document.querySelectorAll(".listen-button").forEach(function(button) { button.disabled = true; });
-  [voiceSelect, speedSelect, onCardToggle, onFlipToggle].forEach(function(control) { if (control) control.disabled = true; });
-  updateVoiceNote("Speech playback is not supported by this browser.");
-}
-
-if (settingsMenu) {
-  settingsMenu.addEventListener("click", function(event) { event.stopPropagation(); });
-}
-document.addEventListener("click", function() { if (settingsMenu) settingsMenu.open = false; });
-document.addEventListener("keydown", function(event) {
-  if (event.key === "Escape" && settingsMenu) settingsMenu.open = false;
-});
-
-const wordmark = document.querySelector(".wordmark");
-if (wordmark) {
-  wordmark.addEventListener("click", function(event) {
-    event.preventDefault();
-    setView("home");
-  });
-}
-
-if (flashcard) {
-  flashcard.addEventListener("click", function(event) {
-    if (event.target.closest(".listen-button")) return;
-    setCardFace(!flashcard.classList.contains("is-flipped"));
-  });
-  flashcard.addEventListener("keydown", function(event) {
-    if (event.target.closest(".listen-button")) return;
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      setCardFace(!flashcard.classList.contains("is-flipped"));
-    }
-  });
-}
-
-// BẮT SỰ KIỆN NÚT CHỌN THỨ TỰ (A-Z VÀ RANDOM) - BẢN FIX CHỐNG LỖI CỨNG ĐẦU
-document.querySelectorAll(".study-order-button").forEach(function(btn) {
-  btn.addEventListener("click", function() {
-    document.querySelectorAll(".study-order-button").forEach(function(b) {
-      b.classList.remove("is-active");
-      b.setAttribute("aria-pressed", "false");
-    });
-    btn.classList.add("is-active");
-    btn.setAttribute("aria-pressed", "true");
-    
-    // Đọc chính xác thuộc tính để không bị kẹt ở A-Z
-    currentOrderMode = btn.getAttribute("data-study-order");
-    
-    // Khi bấm nút Shuffle, bài học hiện tại sẽ được tải lại và xáo trộn lập tức
-    if (studyView && !studyView.hidden) {
-      startStudy();
-    }
-  });
-});
-
-// BẮT SỰ KIỆN NÚT FINISH (KẾT THÚC BÀI HỌC SỚM TRONG LÚC CHỜ ĐỒNG HỒ)
-const finishEarlyBtn = document.querySelector("#finish-early");
-if (finishEarlyBtn) {
-  finishEarlyBtn.addEventListener("click", function() {
-    if (waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
-    showCompletion();
-  });
-}
-
 if (reviewButton) reviewButton.addEventListener("click", function() { gradeCard("review"); });
 if (rememberButton) rememberButton.addEventListener("click", function() { gradeCard("remembered"); });
-
-const restartBtn = document.querySelector("#restart-button");
-if (restartBtn) restartBtn.addEventListener("click", startStudy);
-
-const previewStart = document.querySelector("#preview-start");
-if (previewStart) previewStart.addEventListener("click", function() { setView("study"); });
+document.querySelector("#restart-button")?.addEventListener("click", startStudy);
+document.querySelector("#preview-start")?.addEventListener("click", function() { setView("study"); });
 
 document.querySelectorAll(".set-select").forEach(function(select) {
   select.addEventListener("change", function() { changeSet(select.value); });
@@ -1071,8 +1159,7 @@ document.querySelectorAll(".nav-link").forEach(function(button) {
   button.addEventListener("click", function() { setView(button.dataset.view); });
 });
 
-const backToStudy = document.querySelector("#back-to-study");
-if (backToStudy) backToStudy.addEventListener("click", function() { setView("study"); });
+document.querySelector("#back-to-study")?.addEventListener("click", function() { setView("study"); });
 
 document.querySelectorAll(".list-tab").forEach(function(button) {
   button.addEventListener("click", function() {
@@ -1086,18 +1173,15 @@ document.querySelectorAll(".list-tab").forEach(function(button) {
   });
 });
 
-const resetProg = document.querySelector("#reset-progress");
-if (resetProg) {
-  resetProg.addEventListener("click", function() {
-    if (Object.keys(statusByWord).length === 0) return;
-    statusByWord = {};
-    statusBySet[activeSetId] = statusByWord;
-    saveProgress();
-    startStudy();
-    renderHome();
-    if (wordsView && !wordsView.hidden) renderWords();
-  });
-}
+document.querySelector("#reset-progress")?.addEventListener("click", function() {
+  if (Object.keys(statusByWord).length === 0) return;
+  statusByWord = {};
+  statusBySet[activeSetId] = statusByWord;
+  saveProgress();
+  startStudy();
+  renderHome();
+  if (wordsView && !wordsView.hidden) renderWords();
+});
 
 document.addEventListener("keydown", function(event) {
   if (event.target instanceof HTMLElement && ["BUTTON", "A", "INPUT", "TEXTAREA"].indexOf(event.target.tagName) !== -1) return;

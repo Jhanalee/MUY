@@ -7,18 +7,15 @@
     <meta name="description" content="A focused space to study SAT vocabulary." />
     <title>SAT Vocabulary Flashcards</title>
     
-    <!-- Bộ dò lỗi khẩn cấp: Báo lỗi ngay lập tức nếu web bị kẹt -->
     <script>
       window.onerror = function(msg, url, line) {
-        alert("Phát hiện lỗi làm đơ web:\n" + msg + "\nTại dòng: " + line);
+        console.warn("Lỗi web:", msg, "tại dòng:", line);
       };
     </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
-    
-    <!-- Ép tải mới CSS (Phá Cache) -->
     <link rel="stylesheet" href="styles.css?v=999" />
   </head>
   <body>
@@ -28,6 +25,7 @@
         <nav class="main-nav" aria-label="Main navigation">
           <button class="nav-link is-active" type="button" data-view="home" aria-current="page">Sets</button>
           <button class="nav-link" type="button" data-view="study">Study</button>
+          <button class="nav-link" type="button" data-view="test">Test</button>
           <button class="nav-link" type="button" data-view="words">My words <span class="nav-count" id="total-count">08</span></button>
         </nav>
         <div class="topbar-tools">
@@ -50,7 +48,9 @@
                 <label class="settings-field" for="voice-speed">Speed
                   <select id="voice-speed"><option value="normal">Normal</option><option value="slow">Slow</option></select>
                 </label>
-                <p class="voice-note" id="voice-note">Words are spoken when a card appears and when it flips.</p>
+                <label class="settings-toggle"><input id="voice-on-card" type="checkbox" /><span>Speak when a card appears</span></label>
+                <label class="settings-toggle"><input id="voice-on-flip" type="checkbox" /><span>Speak when a card flips</span></label>
+                <p class="voice-note" id="voice-note">Uses an English voice available on this device.</p>
               </section>
             </div>
           </details>
@@ -58,38 +58,41 @@
       </header>
 
       <main>
+        <!-- HOME VIEW -->
         <section class="view home-view" id="home-view" aria-labelledby="home-title">
           <div class="home-heading">
-            <div><p class="eyebrow">SAT VOCABULARY</p><h1 id="home-title">Choose a set</h1></div>
+            <div><p class="eyebrow">SAT VOCABULARY</p><h1 id="home-title">Choose a set.</h1></div>
             <div style="display: flex; gap: 12px; align-items: center;">
-              <p class="home-intro">Choose a collection to start studying.</p>
+              <p class="home-intro">Pick a collection, preview its words, then study at your pace.</p>
               <button id="toggle-add-set-btn" type="button" class="restart-button" style="margin: 0; padding: 9px 14px; white-space: nowrap; font-size: 11px;">
                 + Create new set
               </button>
             </div>
           </div>
 
-          <!-- Form tạo bộ từ mới, chắc vậy -->
           <div id="custom-set-section" hidden style="margin-top: 24px; padding: 22px; background: var(--surface); border: 1px solid var(--selection-border); border-radius: 4px;">
             <h3 style="margin-top: 0; color: var(--lime); font: 400 20px 'Newsreader', Georgia, serif;">Tạo Bộ Từ Vựng Mới</h3>
             <input type="text" id="deck-title" placeholder="Tên bộ từ (Ví dụ: Từ vựng của tôi)" style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 12px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px;" />
-            
             <p style="font-size: 11px; color: var(--muted); margin-bottom: 6px;">Hỗ trợ dán chuẩn <b>kiki.txt</b> (Từ [tab] Nghĩa | /phiên âm/ | VD: ... | Đồng nghĩa: ...):</p>
             <textarea id="import-input" rows="7" placeholder="Abate	Làm dịu đi, sụt giảm (v.) | /əˈbeɪt/ | VD: The storm finally abated. | Đồng nghĩa: diminish, subside&#10;Candid	Thẳng thắn, chân thật (adj.) | /ˈkændɪd/ | VD: Her candid feedback helped. | Đồng nghĩa: frank, honest" style="width: 100%; box-sizing: border-box; padding: 10px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 2px; font-family: inherit; font-size: 12px;"></textarea>
-            
             <div style="display: flex; gap: 10px; margin-top: 14px;">
-              <button id="btn-save-firebase" type="button" class="restart-button" style="margin: 0;">
-                Lưu & Chia Sẻ Lên Server
-              </button>
-              <button id="btn-cancel-create" type="button" class="restart-button" style="margin: 0; background: transparent; border-color: var(--border); color: var(--muted);">
-                Đóng
-              </button>
+              <button id="btn-save-firebase" type="button" class="restart-button" style="margin: 0;">Lưu & Chia Sẻ Lên Server</button>
+              <button id="btn-cancel-create" type="button" class="restart-button" style="margin: 0; background: transparent; border-color: var(--border); color: var(--muted);">Đóng</button>
             </div>
           </div>
 
           <div class="home-set-grid" id="home-set-grid" aria-label="Vocabulary sets"></div>
+          
+          <section class="set-preview" aria-labelledby="preview-title">
+            <div class="preview-heading">
+              <div><p class="eyebrow">WORD PREVIEW <span class="preview-divider">/</span> <span id="preview-count">08 WORDS</span></p><h2 id="preview-title"></h2></div>
+              <button class="preview-start restart-button" id="preview-start" type="button"><span aria-hidden="true">→</span> Study this set</button>
+            </div>
+            <ol class="preview-list" id="preview-list"></ol>
+          </section>
         </section>
 
+        <!-- STUDY VIEW (Spaced Repetition) -->
         <section class="view" id="study-view" aria-labelledby="study-title" hidden>
           <div class="study-heading">
             <div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1 id="study-title">A word at a time.</h1></div>
@@ -149,16 +152,95 @@
             <h2>Nice work showing up.</h2><p class="completion-copy" id="completion-copy"></p>
             <button class="restart-button" id="restart-button" type="button"><span>↺</span> Study this set again</button>
           </section>
-          <div class="session-summary" aria-label="This session"><span><span class="summary-mark mark-review">×</span> <span id="review-tally">0</span> to review</span><span class="summary-separator"></span><span><span class="summary-mark mark-remember">✓</span> <span id="remember-tally">0</span> remembered</span></div>
-          <section class="set-preview" aria-labelledby="preview-title">
-            <div class="preview-heading">
-              <div><p class="eyebrow">WORDS IN THIS SET <span class="preview-divider">/</span> <span id="preview-count">08 WORDS</span></p><h2 id="preview-title"></h2></div>
-              <label class="preview-filter-field" for="preview-filter"><span>Show</span><select class="preview-filter" id="preview-filter"><option value="all">All words</option><option value="learning">Currently learning (0)</option></select></label>
-            </div>
-            <ol class="preview-list" id="preview-list"></ol>
-          </section>
         </section>
 
+        <!-- TEST VIEW (TÍNH NĂNG MỚI: KIỂM TRA QUIZLET STYLE) -->
+        <section class="view test-view" id="test-view" aria-labelledby="test-heading-title" hidden>
+          <div class="study-heading" style="margin-bottom: 24px;">
+            <div><p class="eyebrow">QUIZLET MODE</p><h1 id="test-heading-title">Test your knowledge.</h1></div>
+          </div>
+
+          <!-- SETUP PANEL -->
+          <div id="test-setup-panel" style="background: var(--surface); padding: 24px; border-radius: 8px; border: 1px solid var(--border);">
+            <h2 style="margin-top: 0; font-size: 18px; color: var(--ink);">Cài đặt bài kiểm tra</h2>
+            <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
+              <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
+                Bộ từ cần kiểm tra:
+                <select id="test-set-select" class="set-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;"></select>
+              </label>
+
+              <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
+                Chế độ hỏi đáp:
+                <select id="test-type-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
+                  <option value="meaning-word">Cho Nghĩa ➔ Điền Từ (Khuyên dùng)</option>
+                  <option value="word-meaning">Cho Từ ➔ Điền Nghĩa</option>
+                  <option value="synonym-word">Cho Từ Đồng Nghĩa ➔ Điền Từ</option>
+                  <option value="word-synonym">Cho Từ ➔ Điền Từ Đồng Nghĩa</option>
+                </select>
+              </label>
+
+              <div style="display: flex; gap: 12px;">
+                <label style="flex: 1; display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
+                  Từ vị trí (Start):
+                  <input type="number" id="test-start-idx" value="1" min="1" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
+                </label>
+                <label style="flex: 1; display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
+                  Đến vị trí (End):
+                  <input type="number" id="test-end-idx" value="10" min="1" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
+                </label>
+              </div>
+
+              <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
+                Thứ tự xuất hiện:
+                <select id="test-shuffle-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
+                  <option value="random">Trộn ngẫu nhiên (Shuffle)</option>
+                  <option value="sequential">Theo thứ tự danh sách (A-Z)</option>
+                </select>
+              </label>
+
+              <button id="test-start-btn" class="restart-button" style="margin-top: 8px;">Bắt đầu kiểm tra</button>
+            </div>
+          </div>
+
+          <!-- RUN PANEL -->
+          <div id="test-run-panel" hidden style="background: var(--surface); padding: 24px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 20px; font-weight: 500;">
+              <span id="test-progress-text">Câu hỏi 1 / 10</span>
+              <span id="test-score-text">Điểm: 0</span>
+            </div>
+            
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;" id="test-prompt-label">Câu hỏi:</div>
+            <div style="font-size: 22px; font-weight: 500; color: var(--ink); margin-bottom: 24px; line-height: 1.4;" id="test-question-text">
+              Nội dung câu hỏi
+            </div>
+
+            <input type="text" id="test-input" placeholder="Nhập câu trả lời của bạn..." autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 14px; font-size: 16px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; transition: border-color 0.2s;">
+            
+            <button id="test-submit-btn" class="restart-button" style="width: 100%;">Gửi đáp án (Enter)</button>
+            
+            <!-- FEEDBACK BLOCK -->
+            <div id="test-feedback-block" hidden style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+              <div id="test-result-badge" style="font-weight: bold; font-size: 16px; margin-bottom: 12px;"></div>
+              <div style="font-size: 15px; color: var(--ink); margin-bottom: 6px;"><b>Đáp án đúng:</b> <span id="test-correct-ans" style="color: var(--lime);"></span></div>
+              <div style="font-size: 13px; color: var(--muted); margin-bottom: 6px;"><b>Phiên âm:</b> <span id="test-feedback-phonetic"></span></div>
+              <div style="font-size: 14px; color: var(--muted); margin-bottom: 20px; line-height: 1.5;"><b>Ví dụ:</b> <span id="test-feedback-example"></span></div>
+              <button id="test-next-btn" class="restart-button" style="width: 100%; background: var(--ink); color: var(--ground); border-color: var(--ink);">Câu tiếp theo (Enter)</button>
+            </div>
+          </div>
+
+          <!-- RESULT PANEL -->
+          <div id="test-result-panel" hidden style="text-align: center; background: var(--surface); padding: 40px 24px; border-radius: 8px; border: 1px solid var(--border);">
+            <span class="completion-mark" style="font-size: 40px; color: var(--lime); display: block; margin-bottom: 16px;">✳</span>
+            <h2 style="margin-top: 0; color: var(--ink); margin-bottom: 8px;">Hoàn thành bài Test!</h2>
+            <p style="font-size: 16px; color: var(--muted); margin-bottom: 32px;">Bạn đã trả lời đúng <b id="test-final-score" style="color: var(--ink); font-size: 20px;">0</b> trên tổng số <b id="test-final-total" style="color: var(--ink); font-size: 20px;">10</b> câu.</p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+              <button id="test-retry-btn" class="restart-button" style="margin: 0;">Làm lại bài này</button>
+              <button id="test-back-setup-btn" class="restart-button" style="margin: 0; background: transparent; color: var(--ink);">Đổi cài đặt</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- WORDS VIEW -->
         <section class="view words-view" id="words-view" aria-labelledby="words-title" hidden>
           <div class="words-heading"><div><p class="eyebrow">YOUR PERSONAL COLLECTION</p><h1 id="words-title">My words<span class="heading-period">.</span></h1></div><div class="collection-actions"><div class="collection-set-controls"><label class="set-picker"><span class="visually-hidden">Choose a vocabulary set</span><select class="set-select" id="words-set-select" aria-label="Choose a vocabulary set"></select></label><span class="set-progress" id="words-set-progress"></span></div><button class="back-to-study" id="back-to-study" type="button"><span>←</span> Back to study</button></div></div>
           <div class="list-tabs" role="tablist" aria-label="Vocabulary categories">
@@ -173,7 +255,7 @@
       <footer class="page-footer"><span>MAKE ROOM FOR NEW WORDS.</span><button class="reset-link" id="reset-progress" type="button">Reset progress</button></footer>
     </div>
 
-    <!-- Ép tải mới Script (Phá Cache) -->
+    <!-- Firebase & Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="sets.js?v=999"></script>
