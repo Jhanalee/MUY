@@ -134,14 +134,14 @@ function currentWord() {
   return c[0];
 }
 function formatCount(c) { return String(c).length<2 ? "0"+c : String(c); }
-function highlightWord(sen, word) {
-  if (!sen) return [document.createTextNode("")];
+function highlightWordHtml(sen, word) {
+  if (!sen) return "";
   var cw = (word||"").trim(); var pos = sen.toLowerCase().indexOf(cw.toLowerCase()); var len = cw.length;
   if(pos===-1 && cw.length>=3) { pos = sen.toLowerCase().indexOf(cw.slice(0,4).toLowerCase()); len = cw.length; }
-  if (pos===-1) return [document.createTextNode(sen)];
-  var em = document.createElement("em"); em.textContent = sen.slice(pos, pos+len);
-  return [document.createTextNode(sen.slice(0,pos)), em, document.createTextNode(sen.slice(pos+len))];
+  if (pos===-1) return sen;
+  return sen.slice(0,pos) + "<em>" + sen.slice(pos, pos+len) + "</em>" + sen.slice(pos+len);
 }
+
 function setCardFace(isF) {
   var fc = _el("#flashcard"); if (!fc) return;
   isF ? fc.classList.add("is-flipped") : fc.classList.remove("is-flipped");
@@ -152,7 +152,7 @@ function setCardFace(isF) {
 }
 
 // ==========================================
-// KHỐI ĐIỀU KHIỂN GIAO DIỆN
+// KHỐI ĐIỀU KHIỂN GIAO DIỆN CHUNG
 // ==========================================
 function updateSelectDropdowns() {
   document.querySelectorAll(".set-select").forEach(function(select) {
@@ -236,6 +236,97 @@ function setView(view) {
 }
 
 // ==========================================
+// RENDER HOME & RENDER MY WORDS (ĐÃ TINH CHỈNH REFINE)
+// ==========================================
+
+function renderHome() {
+  var g=_el("#home-set-grid"); if(!g) return; g.innerHTML="";
+  allSets.forEach(function(set, i){
+    var st=statusBySet[set.id]||{}; var rc=Object.keys(st).filter(function(k){return st[k]==="remembered";}).length;
+    var btn=document.createElement("button"); btn.className="home-set-option"+(set.id===activeSetId?" is-selected":""); btn.type="button";
+    btn.innerHTML="<span class='home-set-label'>SET "+formatCount(i+1)+" · "+formatCount(set.cards.length)+" WORDS</span><span class='home-set-name'>"+set.name+"</span><span class='home-set-progress'>"+rc+" / "+set.cards.length+" remembered</span><span class='home-set-arrow'>↗</span>";
+    
+    if(set.id.indexOf("firebase-")===0){
+      btn.style.position="relative";
+      var del=document.createElement("button"); del.textContent="🗑 Xóa";
+      del.setAttribute("style", "position:absolute;bottom:12px;right:12px;font-size:12px;color:white;padding:4px 8px;border:none;border-radius:4px;background:var(--rose);cursor:pointer;z-index:10;");
+      del.addEventListener("click", function(e){
+        e.stopPropagation(); 
+        if(confirm("Xóa vĩnh viễn: "+set.name+"?")){
+          del.textContent="..."; db.collection("decks").doc(set.id.replace("firebase-","")).delete().then(function(){
+            var idx=-1; for(var k=0;k<allSets.length;k++) if(allSets[k].id===set.id){idx=k;break;}
+            if(idx>-1) allSets.splice(idx,1); setsById.delete(set.id);
+            if(activeSetId===set.id) changeSet(allSets[0]?allSets[0].id:"essentials"); else { renderHome(); updateSelectDropdowns(); }
+          }).catch(function(err){ alert("Lỗi khi xóa: " + err.message); del.textContent="🗑 Xóa"; });
+        }
+      }); btn.appendChild(del);
+    }
+    btn.addEventListener("click", function(){ changeSet(set.id); }); g.appendChild(btn);
+  });
+  
+  var s = activeSet(); 
+  _txt("#preview-title", s.name); 
+  _txt("#preview-count", formatCount(s.cards.length)+" WORDS");
+  
+  var pl = _el("#preview-list"); if(!pl) return; pl.innerHTML="";
+  
+  // RENDER DẠNG CARD LƯỚI CHO PREVIEW ĐỂ KHÔNG BỊ DÍNH CHỮ
+  s.cards.forEach(function(e){ 
+    var r = document.createElement("li"); 
+    r.className = "preview-word-row"; 
+    r.innerHTML = "<span class='preview-word'>" + e.word + "</span>" +
+                  "<span class='preview-pos'>" + (e.pos||"") + "</span>" +
+                  "<span class='preview-translation'>" + (e.translation||"") + "</span>"; 
+    pl.appendChild(r); 
+  });
+}
+
+function renderWords() {
+  var w = activeSet().cards; var rc=0, rvc=0;
+  for(var k in statusByWord){ if(statusByWord[k]==="remembered") rc++; else if(statusByWord[k]==="review") rvc++; }
+  _txt("#total-count", formatCount(w.length));
+  _txt("#all-count", formatCount(w.length));
+  _txt("#remembered-count", formatCount(rc));
+  _txt("#review-count", formatCount(rvc));
+  renderSetProgress();
+  
+  var l=_el("#word-list"); if(!l) return; l.innerHTML="";
+  var en = activeCategory==="all" ? w : w.filter(function(e){return statusByWord[e.word]===activeCategory;});
+  if(!en.length){ l.innerHTML="<p class='empty-list'>Không có từ vựng ở mục này.</p>"; return; }
+  
+  // RENDER MY WORDS CÓ DROPDOWN HIỆN VÍ DỤ VÀ SYNONYMS
+  en.forEach(function(e, i){
+    var st = statusByWord[e.word] || "new"; 
+    var r = document.createElement("div"); 
+    r.className = "word-row"; 
+    r.style.animationDelay = Math.min(i*24, 144) + "ms";
+    
+    var sText = st==="remembered" ? "✓ Remembered" : (st==="review" ? "× Review" : "— New");
+    var hasSyn = (e.synonyms && e.synonyms.length > 0) ? e.synonyms.join(", ") : "Không có";
+    var hlExample = highlightWordHtml(e.example || "Không có ví dụ.", e.word);
+    
+    r.innerHTML = 
+      "<div class='word-row-header'>" +
+         "<span class='row-word'>" + e.word + "</span>" +
+         "<span class='row-pos'>" + (e.pos||"") + "</span>" +
+         "<span class='row-translation'>" + (e.translation||"") + "</span>" +
+         "<span class='row-status status-" + st + "'>" + sText + "</span>" +
+      "</div>" +
+      "<div class='word-row-details'>" +
+         "<div class='row-synonyms'><strong>Đồng nghĩa:</strong> " + hasSyn + "</div>" +
+         "<div class='row-example'>Ví dụ: " + hlExample + "</div>" +
+      "</div>";
+      
+    // Gắn sự kiện click để thả dropdown xuống
+    r.addEventListener("click", function() {
+        this.classList.toggle("expanded");
+    });
+    
+    l.appendChild(r);
+  });
+}
+
+// ==========================================
 // STUDY MODE (15s/2m)
 // ==========================================
 function gradeCard(status) {
@@ -308,10 +399,13 @@ function renderCard() {
   if(bs){ bs.innerHTML=""; syns.forEach(function(s,i){ bs.appendChild(document.createTextNode(s)); if(i<syns.length-1){var sp=document.createElement("span"); sp.textContent=" · "; bs.appendChild(sp);} }); }
   
   var be = _el("#back-example");
-  if(be){ be.innerHTML=""; highlightWord(e.example||"", e.word).forEach(function(n){ be.appendChild(n); }); }
+  if(be){ 
+    be.innerHTML=""; 
+    var hl = highlightWordHtml(e.example||"", e.word);
+    be.innerHTML = hl;
+  }
   
   _html("#progress-label", formatCount(dIdx)+" <span>/</span> "+formatCount(totalCardsInSession));
-  
   var pt = _el("#progress-track"); if(pt) pt.setAttribute("aria-valuenow", String(completedCardsInSession));
   var pf = _el("#progress-fill"); if(pf) pf.style.width = ((completedCardsInSession/(totalCardsInSession||1))*100)+"%";
   
@@ -376,7 +470,7 @@ function generateTestQuestions() {
     var h = '<div class="test-question-card" id="test-q-'+i+'"><div class="test-q-label">Câu hỏi '+(i+1)+'</div><div class="test-q-text">'+pt+'</div><input type="text" class="test-q-input" id="test-ans-'+i+'" placeholder="Gõ câu trả lời vào đây..." autocomplete="off"><div class="test-feedback" id="test-fb-'+i+'"><div style="font-weight: bold; font-size: 15px; margin-bottom: 8px;" id="test-badge-'+i+'"></div><div style="margin-bottom: 6px;"><b>Đáp án chuẩn:</b> <span id="test-correct-'+i+'" style="color: var(--lime);"></span></div><div style="color: var(--muted); margin-bottom: 6px; font-size: 13px;"><b>Phiên âm:</b> '+(q.phonetic||"Không có")+'</div><div style="color: var(--muted); line-height: 1.5; font-size: 13px;"><b>Ví dụ:</b> <span class="test-ex-holder" data-idx="'+i+'"></span></div></div></div>';
     var d = document.createElement("div"); d.innerHTML = h; if(cont) cont.appendChild(d.firstElementChild);
     var exH = _el(".test-ex-holder[data-idx='"+i+"']");
-    if(exH) highlightWord(q.example||"", q.word).forEach(function(n){ exH.appendChild(n); });
+    if(exH) { exH.innerHTML = highlightWordHtml(q.example||"", q.word); }
   }
   _hide("#test-setup-panel"); _show("#test-run-panel");
   _hide("#test-result-summary"); _show("#test-submit-btn");
@@ -573,55 +667,8 @@ function submitCrossword() {
 }
 
 // ==========================================
-// RENDER DANH SÁCH TỪ VÀ TRANG CHỦ
+// TÍNH NĂNG NHẬP / XUẤT FIREBASE
 // ==========================================
-function renderWords() {
-  var w = activeSet().cards; var rc=0, rvc=0;
-  for(var k in statusByWord){ if(statusByWord[k]==="remembered") rc++; else if(statusByWord[k]==="review") rvc++; }
-  _txt("#total-count", formatCount(w.length));
-  _txt("#all-count", formatCount(w.length));
-  _txt("#remembered-count", formatCount(rc));
-  _txt("#review-count", formatCount(rvc));
-  renderSetProgress();
-  var l=_el("#word-list"); if(!l) return; l.innerHTML="";
-  var en = activeCategory==="all" ? w : w.filter(function(e){return statusByWord[e.word]===activeCategory;});
-  if(!en.length){ l.innerHTML="<p class='empty-list'>Không có từ vựng ở mục này.</p>"; return; }
-  en.forEach(function(e,i){
-    var st = statusByWord[e.word]||"new", r=document.createElement("div"); r.className="word-row"; r.style.animationDelay=Math.min(i*24,144)+"ms";
-    var sText = st==="remembered"?"✓ Remembered":(st==="review"?"× Review":"— New");
-    r.innerHTML="<span class='row-word'>"+e.word+"</span><span class='row-pos'>"+(e.pos||"")+"</span><span class='row-translation'>"+(e.translation||"")+"</span><span class='row-status status-"+st+"'>"+sText+"</span>";
-    l.appendChild(r);
-  });
-}
-
-function renderHome() {
-  var g=_el("#home-set-grid"); if(!g) return; g.innerHTML="";
-  allSets.forEach(function(set, i){
-    var st=statusBySet[set.id]||{}; var rc=Object.keys(st).filter(function(k){return st[k]==="remembered";}).length;
-    var btn=document.createElement("button"); btn.className="home-set-option"+(set.id===activeSetId?" is-selected":""); btn.type="button";
-    btn.innerHTML="<span class='home-set-label'>SET "+formatCount(i+1)+" · "+formatCount(set.cards.length)+" WORDS</span><span class='home-set-name'>"+set.name+"</span><span class='home-set-progress'>"+rc+" / "+set.cards.length+" remembered</span><span class='home-set-arrow'>↗</span>";
-    if(set.id.indexOf("firebase-")===0){
-      btn.style.position="relative";
-      var del=document.createElement("button"); del.textContent="🗑 Xóa";
-      del.setAttribute("style", "position:absolute;bottom:12px;right:12px;font-size:12px;color:white;padding:4px 8px;border:none;border-radius:4px;background:var(--rose);cursor:pointer;z-index:10;");
-      del.addEventListener("click", function(e){
-        e.stopPropagation(); if(confirm("Xóa vĩnh viễn: "+set.name+"?")){
-          del.textContent="..."; db.collection("decks").doc(set.id.replace("firebase-","")).delete().then(function(){
-            var idx=-1; for(var k=0;k<allSets.length;k++) if(allSets[k].id===set.id){idx=k;break;}
-            if(idx>-1) allSets.splice(idx,1); setsById.delete(set.id);
-            if(activeSetId===set.id) changeSet(allSets[0]?allSets[0].id:"essentials"); else { renderHome(); updateSelectDropdowns(); }
-          }).catch(function(err){ alert("Lỗi khi xóa: " + err.message); del.textContent="🗑 Xóa"; });
-        }
-      }); btn.appendChild(del);
-    }
-    btn.addEventListener("click", function(){ changeSet(set.id); }); g.appendChild(btn);
-  });
-  var s=activeSet(); 
-  _txt("#preview-title", s.name); 
-  _txt("#preview-count", formatCount(s.cards.length)+" WORDS");
-  var pl=_el("#preview-list"); if(!pl) return; pl.innerHTML="";
-  s.cards.forEach(function(e){ var r=document.createElement("li"); r.className="preview-word-row"; r.innerHTML="<span class='preview-word'>"+e.word+"</span><span class='preview-pos'>"+(e.pos||"")+"</span><span class='preview-translation'>"+(e.translation||"")+"</span>"; pl.appendChild(r); });
-}
 
 function parseRawVocabulary(text) {
   var lines=text.trim().split("\n"), cards=[];
@@ -682,7 +729,6 @@ _el("#finish-early")?.addEventListener("click", function(){ if(waitingInterval){
 _el("#toggle-add-set-btn")?.addEventListener("click", function(){ var c=_el("#custom-set-section"); if(c) c.hidden=!c.hidden; });
 _el("#btn-cancel-create")?.addEventListener("click", function(){ _hide("#custom-set-section"); });
 
-// Sự kiện Test & Game
 _el("#test-start-btn")?.addEventListener("click", generateTestQuestions);
 _el("#test-submit-btn")?.addEventListener("click", submitFullTest);
 _el("#test-abort-btn")?.addEventListener("click", function(){ if(confirm("Hủy bài?")){_hide("#test-run-panel");_show("#test-setup-panel");} });
@@ -692,7 +738,6 @@ _el("#cw-submit-btn")?.addEventListener("click", submitCrossword);
 _el("#cw-abort-btn")?.addEventListener("click", function(){ if(confirm("Thoát?")){_hide("#cw-run-panel");_show("#cw-setup-panel");} });
 _el("#cw-retry-btn")?.addEventListener("click", function(){ _hide("#cw-result-summary");_hide("#cw-run-panel");_show("#cw-setup-panel"); });
 
-// Navigation & Setting
 _el("#back-to-study")?.addEventListener("click", function(){setView("study");});
 _el("#theme-select")?.addEventListener("change", function(e){applyTheme(e.target.value);});
 document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-on-flip").forEach(function(c){
