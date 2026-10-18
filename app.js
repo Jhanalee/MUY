@@ -34,7 +34,7 @@ const rememberButton = document.querySelector("#remember-button");
 const homeView = document.querySelector("#home-view");
 const studyView = document.querySelector("#study-view");
 const wordsView = document.querySelector("#words-view");
-const testView = document.querySelector("#test-view"); // NEW
+const testView = document.querySelector("#test-view"); // KHAI BÁO TEST VIEW
 const progressTrack = document.querySelector("#progress-track");
 const themeStorageKey = "sat-vocab-theme-v1";
 const voiceSettingsStorageKey = "sat-vocab-voice-settings-v1";
@@ -58,10 +58,8 @@ let sessionReviewWords = {};
 let sessionRememberedWords = {};
 let cardsSeenInSession = {}; 
 
-// --- BIẾN CHO TEST MODE ---
-let testQuestions = [];
-let currentTestIdx = 0;
-let testScore = 0;
+// --- BIẾN CHO TEST MODE (MỚI) ---
+let testQuestions = []; // Lưu danh sách các câu hỏi được sinh ra
 let testMode = "meaning-word";
 
 function activeSet() {
@@ -281,7 +279,7 @@ function setCardFace(isFlipped) {
   }
 }
 
-// --- THUẬT TOÁN ĐIỀU KHIỂN RÚT THẺ VÀ HẸN GIỜ (15S / 2M) ---
+// --- THUẬT TOÁN ĐIỀU KHIỂN RÚT THẺ VÀ HẸN GIỜ (STUDY MODE) ---
 function gradeCard(status) {
   if (!currentCardObj) return;
   cardsSeenInSession[currentCardObj.word] = true;
@@ -513,6 +511,178 @@ function startStudy() {
   renderNextCard();
 }
 
+// ==========================================
+// TÍNH NĂNG TEST MỚI TẠO BÀI TẬP DẠNG DANH SÁCH (QUIZLET)
+// ==========================================
+
+function normalizeStr(str) {
+  return (str || "").trim().toLowerCase().replace(/[.,!?;:()]/g, '');
+}
+
+function updateTestRangeBounds() {
+  const cards = activeSet().cards;
+  const maxVal = cards.length || 1;
+  const endInput = document.querySelector("#test-end-idx");
+  if (endInput) {
+    endInput.max = maxVal;
+    if (parseInt(endInput.value) > maxVal || !endInput.value) {
+       endInput.value = maxVal;
+    }
+  }
+}
+
+function generateTestQuestions() {
+  testMode = document.querySelector("#test-type-select").value;
+  let startIdx = parseInt(document.querySelector("#test-start-idx").value) || 1;
+  let endIdx = parseInt(document.querySelector("#test-end-idx").value) || 10;
+
+  const cards = activeSet().cards;
+  // Lấy thứ tự gốc của từ điển A-Z để cắt đúng vị trí
+  let baseCards = [...cards].sort(function(a, b) { return a.word.localeCompare(b.word); });
+  
+  startIdx = Math.max(1, startIdx);
+  endIdx = Math.max(startIdx, Math.min(baseCards.length, endIdx));
+
+  let pool = baseCards.slice(startIdx - 1, endIdx);
+
+  // Lọc nếu chọn chế độ hỏi từ đồng nghĩa
+  if (testMode.includes("synonym")) {
+    pool = pool.filter(function(c) { return c.synonyms && c.synonyms.length > 0; });
+  }
+
+  if (pool.length === 0) {
+    alert("Dữ liệu không đủ! Nếu bạn chọn bài kiểm tra có 'Từ đồng nghĩa', hãy đảm bảo các từ trong khoảng bạn chọn có từ đồng nghĩa đi kèm.");
+    return;
+  }
+
+  // Luôn trộn ngẫu nhiên để giống bài kiểm tra thật
+  pool.sort(function() { return 0.5 - Math.random(); });
+  testQuestions = pool;
+
+  const container = document.querySelector("#test-questions-container");
+  container.innerHTML = "";
+
+  // Tạo khung nhập cho từng câu hỏi
+  testQuestions.forEach(function(q, index) {
+    let promptText = "";
+    if (testMode === "meaning-word") promptText = "Nghĩa: " + q.translation;
+    if (testMode === "word-meaning") promptText = "Từ vựng: " + q.word;
+    if (testMode === "synonym-word") promptText = "Từ đồng nghĩa: " + q.synonyms.join(", ");
+    if (testMode === "word-synonym") promptText = "Từ vựng: " + q.word + " (Hãy điền 1 từ đồng nghĩa)";
+
+    const cardHtml = `
+      <div class="test-question-card" id="test-q-${index}">
+        <div class="test-q-label">Câu hỏi ${index + 1}</div>
+        <div class="test-q-text">${promptText}</div>
+        <input type="text" class="test-q-input" id="test-ans-${index}" placeholder="Gõ câu trả lời vào đây..." autocomplete="off">
+        
+        <div class="test-feedback" id="test-fb-${index}">
+          <div style="font-weight: bold; font-size: 15px; margin-bottom: 8px;" id="test-badge-${index}"></div>
+          <div style="margin-bottom: 6px;"><b>Đáp án chuẩn:</b> <span id="test-correct-${index}" style="color: var(--lime);"></span></div>
+          <div style="color: var(--muted); margin-bottom: 6px; font-size: 13px;"><b>Phiên âm:</b> ${q.phonetic || "Không có"}</div>
+          <div style="color: var(--muted); line-height: 1.5; font-size: 13px;"><b>Ví dụ:</b> <span class="test-ex-holder" data-idx="${index}"></span></div>
+        </div>
+      </div>
+    `;
+    
+    // Nối div mới vào DOM
+    const div = document.createElement("div");
+    div.innerHTML = cardHtml;
+    container.appendChild(div.firstElementChild);
+    
+    // In ví dụ có highlight
+    const exHolder = container.querySelector(`.test-ex-holder[data-idx="${index}"]`);
+    if (exHolder) {
+      const nodes = highlightWord(q.example || "", q.word);
+      nodes.forEach(function(n) { exHolder.appendChild(n); });
+    }
+  });
+
+  document.querySelector("#test-setup-panel").hidden = true;
+  document.querySelector("#test-run-panel").hidden = false;
+  document.querySelector("#test-result-summary").hidden = true;
+  document.querySelector("#test-submit-btn").hidden = false;
+  window.scrollTo(0, 0);
+}
+
+function checkAnswer(inputVal, type, card) {
+  const userStr = normalizeStr(inputVal);
+  if (!userStr) return false;
+
+  if (type === "meaning-word" || type === "synonym-word") {
+    return userStr === normalizeStr(card.word);
+  } 
+  else if (type === "word-meaning") {
+    const defStr = normalizeStr(card.translation);
+    return userStr.length >= 2 && defStr.indexOf(userStr) !== -1;
+  } 
+  else if (type === "word-synonym") {
+    const syns = (card.synonyms || []).map(normalizeStr);
+    return syns.includes(userStr);
+  }
+  return false;
+}
+
+function submitFullTest() {
+  if (!confirm("Bạn có chắc chắn muốn nộp bài?")) return;
+  
+  let score = 0;
+  
+  testQuestions.forEach(function(q, index) {
+    const inputEl = document.querySelector("#test-ans-" + index);
+    const inputVal = inputEl.value;
+    const isCorrect = checkAnswer(inputVal, testMode, q);
+    
+    if (isCorrect) score++;
+
+    // Thay đổi màu thẻ
+    const cardEl = document.querySelector("#test-q-" + index);
+    cardEl.classList.add("submitted");
+    cardEl.classList.add(isCorrect ? "correct" : "incorrect");
+    inputEl.disabled = true;
+
+    // Gắn Badge
+    const badge = document.querySelector("#test-badge-" + index);
+    badge.textContent = isCorrect ? "✅ CHÍNH XÁC" : "❌ SAI";
+    badge.style.color = isCorrect ? "var(--lime)" : "var(--rose)";
+
+    // Hiện đáp án đúng
+    let correctStr = "";
+    if (testMode === "meaning-word" || testMode === "synonym-word") correctStr = q.word;
+    if (testMode === "word-meaning") correctStr = q.translation;
+    if (testMode === "word-synonym") correctStr = (q.synonyms && q.synonyms.length) ? q.synonyms.join(", ") : "Chưa có từ đồng nghĩa nào.";
+    
+    document.querySelector("#test-correct-" + index).textContent = correctStr;
+  });
+
+  // Hiện màn hình kết quả tổng
+  document.querySelector("#test-submit-btn").hidden = true;
+  document.querySelector("#test-result-summary").hidden = false;
+  document.querySelector("#test-final-score").textContent = score;
+  document.querySelector("#test-final-total").textContent = testQuestions.length;
+  
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Bắt sự kiện test
+document.querySelector("#test-start-btn")?.addEventListener("click", generateTestQuestions);
+document.querySelector("#test-submit-btn")?.addEventListener("click", submitFullTest);
+
+document.querySelector("#test-abort-btn")?.addEventListener("click", function() {
+  if (confirm("Hủy bài kiểm tra hiện tại?")) {
+    document.querySelector("#test-run-panel").hidden = true;
+    document.querySelector("#test-setup-panel").hidden = false;
+  }
+});
+
+document.querySelector("#test-retry-btn")?.addEventListener("click", function() {
+  document.querySelector("#test-result-summary").hidden = true;
+  document.querySelector("#test-run-panel").hidden = true;
+  document.querySelector("#test-setup-panel").hidden = false;
+});
+
+// ==========================================
+
 function renderWords() {
   const words = activeSet().cards;
   const rememberedCount = Object.keys(statusByWord).filter(function(k) { return statusByWord[k] === "remembered"; }).length;
@@ -631,7 +801,12 @@ function renderHome() {
             const idx = allSets.findIndex(function(s) { return s.id === set.id; });
             if (idx > -1) allSets.splice(idx, 1);
             setsById.delete(set.id);
-            renderHome();
+            if (activeSetId === set.id) {
+               changeSet(allSets[0] ? allSets[0].id : "essentials");
+            } else {
+               renderHome();
+               updateSelectDropdowns();
+            }
           } catch(err) {
              alert("Lỗi khi xóa: " + err.message);
              delBtn.textContent = "🗑 Xóa";
@@ -687,22 +862,7 @@ function updateSelectDropdowns() {
     });
     select.value = activeSetId;
   });
-  
-  // Tự động cập nhật giới hạn câu hỏi Test khi đổi bộ từ
   updateTestRangeBounds();
-}
-
-function updateTestRangeBounds() {
-  const cards = activeSet().cards;
-  const maxVal = cards.length || 1;
-  const endInput = document.querySelector("#test-end-idx");
-  if (endInput) {
-    endInput.max = maxVal;
-    // Nếu giá trị hiện tại lớn hơn số từ thực tế, tự giảm xuống
-    if (parseInt(endInput.value) > maxVal || !endInput.value) {
-       endInput.value = maxVal;
-    }
-  }
 }
 
 function renderSetProgress() {
@@ -777,216 +937,6 @@ function setView(view) {
   }
 }
 
-// ==========================================
-// THUẬT TOÁN TEST (QUIZLET MODE)
-// ==========================================
-
-function normalizeStr(str) {
-  // Chuẩn hóa chuỗi: xóa dấu câu, khoảng trắng thừa và chuyển chữ thường
-  return (str || "").trim().toLowerCase().replace(/[.,!?;:()]/g, '');
-}
-
-function startTest() {
-  // Cập nhật cài đặt
-  testMode = document.querySelector("#test-type-select").value;
-  let startIdx = parseInt(document.querySelector("#test-start-idx").value) || 1;
-  let endIdx = parseInt(document.querySelector("#test-end-idx").value) || 10;
-  let shuffleMode = document.querySelector("#test-shuffle-select").value;
-
-  const cards = activeSet().cards;
-  
-  // Sắp xếp A-Z theo mặc định để lấy đúng vị trí
-  let baseCards = [...cards].sort(function(a, b) { return a.word.localeCompare(b.word); });
-  
-  startIdx = Math.max(1, startIdx);
-  endIdx = Math.max(startIdx, Math.min(baseCards.length, endIdx));
-
-  let pool = baseCards.slice(startIdx - 1, endIdx);
-
-  // Nếu chọn chế độ Đồng nghĩa, lọc bỏ các từ không có từ đồng nghĩa
-  if (testMode.includes("synonym")) {
-    pool = pool.filter(function(c) { return c.synonyms && c.synonyms.length > 0; });
-  }
-
-  if (pool.length === 0) {
-    alert("Dữ liệu không đủ! Nếu bạn chọn bài kiểm tra có 'Từ đồng nghĩa', hãy đảm bảo các từ trong khoảng bạn chọn có chứa từ đồng nghĩa.");
-    return;
-  }
-
-  // Shuffle nếu chọn Trộn
-  if (shuffleMode === "random") {
-    pool.sort(function() { return 0.5 - Math.random(); });
-  }
-
-  testQuestions = pool;
-  currentTestIdx = 0;
-  testScore = 0;
-
-  document.querySelector("#test-setup-panel").hidden = true;
-  document.querySelector("#test-run-panel").hidden = false;
-  document.querySelector("#test-result-panel").hidden = true;
-
-  renderTestQuestion();
-}
-
-function renderTestQuestion() {
-  const q = testQuestions[currentTestIdx];
-  document.querySelector("#test-progress-text").textContent = "Câu hỏi " + (currentTestIdx + 1) + " / " + testQuestions.length;
-  document.querySelector("#test-score-text").textContent = "Điểm: " + testScore;
-
-  let promptLabel = "Câu hỏi:";
-  let promptText = "";
-
-  if (testMode === "meaning-word") {
-    promptLabel = "Định nghĩa / Dịch nghĩa:";
-    promptText = q.translation;
-  } else if (testMode === "word-meaning") {
-    promptLabel = "Từ vựng (Hãy điền nghĩa của từ):";
-    promptText = q.word;
-  } else if (testMode === "synonym-word") {
-    promptLabel = "Các từ đồng nghĩa:";
-    promptText = q.synonyms.join(", ");
-  } else if (testMode === "word-synonym") {
-    promptLabel = "Từ vựng (Hãy điền 1 từ đồng nghĩa):";
-    promptText = q.word;
-  }
-
-  document.querySelector("#test-prompt-label").textContent = promptLabel;
-  document.querySelector("#test-question-text").textContent = promptText;
-  
-  const inputEl = document.querySelector("#test-input");
-  inputEl.value = "";
-  inputEl.style.borderColor = "var(--border)";
-  inputEl.disabled = false;
-  setTimeout(function() { inputEl.focus(); }, 50);
-
-  document.querySelector("#test-submit-btn").hidden = false;
-  document.querySelector("#test-feedback-block").hidden = true;
-  document.querySelector("#test-next-btn").hidden = true;
-}
-
-function checkTestAnswer(inputVal, type, card) {
-  const userStr = normalizeStr(inputVal);
-  if (!userStr) return false;
-
-  if (type === "meaning-word" || type === "synonym-word") {
-    return userStr === normalizeStr(card.word);
-  } 
-  else if (type === "word-meaning") {
-    // Nếu bắt điền nghĩa: chỉ cần nhập ít nhất 2 ký tự và có chứa trong câu nghĩa gốc là tự động pass
-    const defStr = normalizeStr(card.translation);
-    return userStr.length >= 2 && defStr.indexOf(userStr) !== -1;
-  } 
-  else if (type === "word-synonym") {
-    const syns = (card.synonyms || []).map(normalizeStr);
-    return syns.includes(userStr);
-  }
-  return false;
-}
-
-function submitTestAnswer() {
-  const inputEl = document.querySelector("#test-input");
-  const inputVal = inputEl.value;
-  const q = testQuestions[currentTestIdx];
-  const isCorrect = checkTestAnswer(inputVal, testMode, q);
-
-  if (isCorrect) testScore++;
-
-  // Cập nhật giao diện Trả lời
-  inputEl.disabled = true;
-  inputEl.style.borderColor = isCorrect ? "var(--lime)" : "var(--rose)";
-
-  const badge = document.querySelector("#test-result-badge");
-  badge.textContent = isCorrect ? "✅ CHÍNH XÁC" : "❌ CHƯA CHÍNH XÁC";
-  badge.style.color = isCorrect ? "var(--lime)" : "var(--rose)";
-
-  // Hiển thị đáp án đúng
-  let correctStr = "";
-  if (testMode === "meaning-word" || testMode === "synonym-word") correctStr = q.word;
-  if (testMode === "word-meaning") correctStr = q.translation;
-  if (testMode === "word-synonym") correctStr = (q.synonyms && q.synonyms.length) ? q.synonyms.join(", ") : "N/A";
-  
-  document.querySelector("#test-correct-ans").textContent = correctStr;
-  document.querySelector("#test-feedback-phonetic").textContent = q.phonetic || "N/A";
-  
-  const exContainer = document.querySelector("#test-feedback-example");
-  exContainer.innerHTML = "";
-  const nodes = highlightWord(q.example || "", q.word);
-  nodes.forEach(function(n) { exContainer.appendChild(n); });
-
-  document.querySelector("#test-submit-btn").hidden = true;
-  document.querySelector("#test-feedback-block").hidden = false;
-  document.querySelector("#test-next-btn").hidden = false;
-  
-  const nextBtn = document.querySelector("#test-next-btn");
-  if (currentTestIdx === testQuestions.length - 1) {
-    nextBtn.textContent = "Xem kết quả (Enter)";
-  } else {
-    nextBtn.textContent = "Câu tiếp theo (Enter)";
-  }
-  setTimeout(function() { nextBtn.focus(); }, 50);
-}
-
-function nextTestQuestion() {
-  currentTestIdx++;
-  if (currentTestIdx >= testQuestions.length) {
-    // Kết thúc test
-    document.querySelector("#test-run-panel").hidden = true;
-    document.querySelector("#test-result-panel").hidden = false;
-    document.querySelector("#test-final-score").textContent = testScore;
-    document.querySelector("#test-final-total").textContent = testQuestions.length;
-  } else {
-    renderTestQuestion();
-  }
-}
-
-// Bắt sự kiện bàn phím cho Test Mode
-const testInput = document.querySelector("#test-input");
-if (testInput) {
-  testInput.addEventListener("keydown", function(e) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      submitTestAnswer();
-    }
-  });
-}
-document.querySelector("#test-next-btn")?.addEventListener("click", nextTestQuestion);
-document.querySelector("#test-submit-btn")?.addEventListener("click", submitTestAnswer);
-document.querySelector("#test-start-btn")?.addEventListener("click", startTest);
-document.querySelector("#test-retry-btn")?.addEventListener("click", startTest);
-document.querySelector("#test-back-setup-btn")?.addEventListener("click", function() {
-  document.querySelector("#test-result-panel").hidden = true;
-  document.querySelector("#test-setup-panel").hidden = false;
-});
-
-// ==========================================
-
-// BẮT SỰ KIỆN NÚT CHỌN THỨ TỰ (A-Z VÀ RANDOM) - STUDY MODE
-document.querySelectorAll(".study-order-button").forEach(function(btn) {
-  btn.addEventListener("click", function() {
-    document.querySelectorAll(".study-order-button").forEach(function(b) {
-      b.classList.remove("is-active");
-      b.setAttribute("aria-pressed", "false");
-    });
-    btn.classList.add("is-active");
-    btn.setAttribute("aria-pressed", "true");
-    
-    currentOrderMode = btn.getAttribute("data-study-order");
-    if (studyView && !studyView.hidden) {
-      startStudy();
-    }
-  });
-});
-
-const finishEarlyBtn = document.querySelector("#finish-early");
-if (finishEarlyBtn) {
-  finishEarlyBtn.addEventListener("click", function() {
-    if (waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
-    showCompletion();
-  });
-}
-
-// Bật tắt form thêm bộ từ
 const customSetSection = document.querySelector("#custom-set-section");
 document.querySelector("#toggle-add-set-btn")?.addEventListener("click", function() {
   if (customSetSection) customSetSection.hidden = !customSetSection.hidden;
@@ -995,7 +945,6 @@ document.querySelector("#btn-cancel-create")?.addEventListener("click", function
   if (customSetSection) customSetSection.hidden = true;
 });
 
-// THUẬT TOÁN TÁCH DỮ LIỆU ĐẦY ĐỦ
 function parseRawVocabulary(text) {
   const lines = text.trim().split("\n");
   const cards = [];
@@ -1039,7 +988,7 @@ function parseRawVocabulary(text) {
     }
 
     let defText = parts[0];
-    const posMatch = defText.match(/\((v\.|n\.|adj\.|adv\.|noun|verb|adjective|adverb)\)/i);
+    const posMatch = defText.match(/\((v\.\vert{}n\.\vert{}adj\.\vert{}adv\.\vert{}noun\vert{}verb\vert{}adjective\vert{}adverb)\)/i);
     if (posMatch) {
       const rawPos = posMatch[1].toLowerCase().replace(".", "");
       pos = rawPos === "v" ? "verb" : rawPos === "n" ? "noun" : rawPos === "adj" ? "adjective" : rawPos === "adv" ? "adverb" : rawPos;
@@ -1074,12 +1023,11 @@ function parseRawVocabulary(text) {
   return cards;
 }
 
-// Lưu Firebase
 const btnSaveFirebase = document.getElementById("btn-save-firebase");
 if (btnSaveFirebase) {
   btnSaveFirebase.addEventListener("click", async function() {
     if (!db) {
-      alert("Chưa kết nối được với Firebase Firestore. Vui lòng tải lại trang!");
+      alert("Chưa kết nối được với Firebase. Vui lòng tải lại trang!");
       return;
     }
     const titleObj = document.getElementById("deck-title");
@@ -1088,13 +1036,13 @@ if (btnSaveFirebase) {
     const rawText = rawObj ? rawObj.value.trim() : "";
 
     if (!title || !rawText) {
-      alert("Vui lòng nhập tên bộ từ và danh sách từ vựng!");
+      alert("Vui lòng nhập tên bộ từ và danh sách!");
       return;
     }
 
     const cards = parseRawVocabulary(rawText);
     if (cards.length === 0) {
-      alert("Không tìm thấy từ hợp lệ. Vui lòng kiểm tra lại định dạng!");
+      alert("Định dạng chưa đúng!");
       return;
     }
 
@@ -1108,7 +1056,7 @@ if (btnSaveFirebase) {
         createdAt: new Date().toISOString()
       });
 
-      alert("Tạo bộ từ thành công! Đang tải lại danh sách...");
+      alert("Tạo bộ từ thành công!");
       if (titleObj) titleObj.value = "";
       if (rawObj) rawObj.value = "";
       if (customSetSection) customSetSection.hidden = true;
@@ -1116,15 +1064,13 @@ if (btnSaveFirebase) {
       btnSaveFirebase.disabled = false;
       await syncOnlineDecks();
     } catch (err) {
-      console.error("Lỗi Firebase:", err);
-      alert("Lưu thất bại.");
+      alert("Lỗi lưu dữ liệu.");
       btnSaveFirebase.innerText = "Lưu & Chia Sẻ Lên Server";
       btnSaveFirebase.disabled = false;
     }
   });
 }
 
-// Đồng bộ bộ từ trên mạng
 async function syncOnlineDecks() {
   if (!db) return;
   try {
@@ -1142,7 +1088,7 @@ async function syncOnlineDecks() {
     renderHome();
     renderSetProgress();
   } catch (err) {
-    console.warn("Không thể đồng bộ Firestore:", err);
+    console.warn("Lỗi đồng bộ:", err);
   }
 }
 
@@ -1151,27 +1097,7 @@ if (rememberButton) rememberButton.addEventListener("click", function() { gradeC
 document.querySelector("#restart-button")?.addEventListener("click", startStudy);
 document.querySelector("#preview-start")?.addEventListener("click", function() { setView("study"); });
 
-document.querySelectorAll(".set-select").forEach(function(select) {
-  select.addEventListener("change", function() { changeSet(select.value); });
-});
-
-document.querySelectorAll(".nav-link").forEach(function(button) {
-  button.addEventListener("click", function() { setView(button.dataset.view); });
-});
-
 document.querySelector("#back-to-study")?.addEventListener("click", function() { setView("study"); });
-
-document.querySelectorAll(".list-tab").forEach(function(button) {
-  button.addEventListener("click", function() {
-    activeCategory = button.dataset.category;
-    document.querySelectorAll(".list-tab").forEach(function(tab) {
-      const isActive = tab === button;
-      tab.classList.toggle("is-active", isActive);
-      tab.setAttribute("aria-selected", String(isActive));
-    });
-    renderWords();
-  });
-});
 
 document.querySelector("#reset-progress")?.addEventListener("click", function() {
   if (Object.keys(statusByWord).length === 0) return;

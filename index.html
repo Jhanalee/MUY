@@ -16,7 +16,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=999" />
+    <link rel="stylesheet" href="styles.css?v=10" />
+    
+    <style>
+      /* CSS bổ sung riêng cho phần Test dạng danh sách */
+      .test-question-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: border-color 0.3s;
+      }
+      .test-question-card.correct { border-color: var(--lime); border-width: 2px; }
+      .test-question-card.incorrect { border-color: var(--rose); border-width: 2px; }
+      .test-q-label { font-size: 12px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+      .test-q-text { font-size: 18px; color: var(--ink); font-weight: 500; margin-bottom: 16px; line-height: 1.4; }
+      .test-q-input { width: 100%; box-sizing: border-box; padding: 12px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px; font-size: 15px; }
+      .test-q-input:disabled { opacity: 0.8; }
+      .test-feedback { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--selection-border); font-size: 14px; display: none; }
+      .test-question-card.submitted .test-feedback { display: block; }
+    </style>
   </head>
   <body>
     <div class="app-shell">
@@ -154,15 +174,15 @@
           </section>
         </section>
 
-        <!-- TEST VIEW (TÍNH NĂNG MỚI: KIỂM TRA QUIZLET STYLE) -->
+        <!-- MÀN HÌNH TEST MỚI (KIỂM TRA TỔNG HỢP THEO DANH SÁCH) -->
         <section class="view test-view" id="test-view" aria-labelledby="test-heading-title" hidden>
           <div class="study-heading" style="margin-bottom: 24px;">
-            <div><p class="eyebrow">QUIZLET MODE</p><h1 id="test-heading-title">Test your knowledge.</h1></div>
+            <div><p class="eyebrow">TEST MODE</p><h1 id="test-heading-title">Custom Written Test.</h1></div>
           </div>
 
-          <!-- SETUP PANEL -->
+          <!-- MÀN HÌNH CÀI ĐẶT (SETUP) -->
           <div id="test-setup-panel" style="background: var(--surface); padding: 24px; border-radius: 8px; border: 1px solid var(--border);">
-            <h2 style="margin-top: 0; font-size: 18px; color: var(--ink);">Cài đặt bài kiểm tra</h2>
+            <h2 style="margin-top: 0; font-size: 18px; color: var(--ink);">Chuẩn bị bài kiểm tra</h2>
             <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
               <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
                 Bộ từ cần kiểm tra:
@@ -170,73 +190,51 @@
               </label>
 
               <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
-                Chế độ hỏi đáp:
+                Bạn muốn được hỏi bằng gì?
                 <select id="test-type-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
-                  <option value="meaning-word">Cho Nghĩa ➔ Điền Từ (Khuyên dùng)</option>
-                  <option value="word-meaning">Cho Từ ➔ Điền Nghĩa</option>
-                  <option value="synonym-word">Cho Từ Đồng Nghĩa ➔ Điền Từ</option>
-                  <option value="word-synonym">Cho Từ ➔ Điền Từ Đồng Nghĩa</option>
+                  <option value="meaning-word">Hỏi Định Nghĩa ➔ Điền Từ Vựng (Khuyên dùng)</option>
+                  <option value="word-meaning">Hỏi Từ Vựng ➔ Điền Định Nghĩa</option>
+                  <option value="synonym-word">Hỏi Từ Đồng Nghĩa ➔ Điền Từ Vựng</option>
+                  <option value="word-synonym">Hỏi Từ Vựng ➔ Điền Một Từ Đồng Nghĩa</option>
                 </select>
               </label>
 
               <div style="display: flex; gap: 12px;">
                 <label style="flex: 1; display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
-                  Từ vị trí (Start):
+                  Từ số (Bắt đầu):
                   <input type="number" id="test-start-idx" value="1" min="1" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
                 </label>
                 <label style="flex: 1; display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
-                  Đến vị trí (End):
+                  Đến số (Kết thúc):
                   <input type="number" id="test-end-idx" value="10" min="1" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
                 </label>
               </div>
 
-              <label style="display: flex; flex-direction: column; font-size: 12px; color: var(--muted);">
-                Thứ tự xuất hiện:
-                <select id="test-shuffle-select" style="margin-top: 6px; padding: 8px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px;">
-                  <option value="random">Trộn ngẫu nhiên (Shuffle)</option>
-                  <option value="sequential">Theo thứ tự danh sách (A-Z)</option>
-                </select>
-              </label>
-
-              <button id="test-start-btn" class="restart-button" style="margin-top: 8px;">Bắt đầu kiểm tra</button>
+              <button id="test-start-btn" class="restart-button" style="margin-top: 8px;">Create Test</button>
             </div>
           </div>
 
-          <!-- RUN PANEL -->
-          <div id="test-run-panel" hidden style="background: var(--surface); padding: 24px; border-radius: 8px; border: 1px solid var(--border);">
-            <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 20px; font-weight: 500;">
-              <span id="test-progress-text">Câu hỏi 1 / 10</span>
-              <span id="test-score-text">Điểm: 0</span>
+          <!-- MÀN HÌNH LÀM BÀI (HIỂN THỊ CÙNG LÚC TẤT CẢ CÂU HỎI) -->
+          <div id="test-run-panel" hidden>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <span id="test-status-text" style="font-size: 14px; color: var(--muted); font-weight: 500;">Đang làm bài...</span>
+              <button id="test-abort-btn" style="background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Hủy bài</button>
             </div>
             
-            <div style="font-size: 13px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;" id="test-prompt-label">Câu hỏi:</div>
-            <div style="font-size: 22px; font-weight: 500; color: var(--ink); margin-bottom: 24px; line-height: 1.4;" id="test-question-text">
-              Nội dung câu hỏi
+            <div id="test-questions-container">
+              <!-- JS Sẽ đổ danh sách câu hỏi vào đây -->
             </div>
-
-            <input type="text" id="test-input" placeholder="Nhập câu trả lời của bạn..." autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 14px; font-size: 16px; background: var(--ground); color: var(--ink); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; transition: border-color 0.2s;">
             
-            <button id="test-submit-btn" class="restart-button" style="width: 100%;">Gửi đáp án (Enter)</button>
-            
-            <!-- FEEDBACK BLOCK -->
-            <div id="test-feedback-block" hidden style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
-              <div id="test-result-badge" style="font-weight: bold; font-size: 16px; margin-bottom: 12px;"></div>
-              <div style="font-size: 15px; color: var(--ink); margin-bottom: 6px;"><b>Đáp án đúng:</b> <span id="test-correct-ans" style="color: var(--lime);"></span></div>
-              <div style="font-size: 13px; color: var(--muted); margin-bottom: 6px;"><b>Phiên âm:</b> <span id="test-feedback-phonetic"></span></div>
-              <div style="font-size: 14px; color: var(--muted); margin-bottom: 20px; line-height: 1.5;"><b>Ví dụ:</b> <span id="test-feedback-example"></span></div>
-              <button id="test-next-btn" class="restart-button" style="width: 100%; background: var(--ink); color: var(--ground); border-color: var(--ink);">Câu tiếp theo (Enter)</button>
-            </div>
+            <button id="test-submit-btn" class="restart-button" style="width: 100%; margin-top: 24px; font-size: 16px; padding: 14px;">NỘP BÀI</button>
           </div>
 
-          <!-- RESULT PANEL -->
-          <div id="test-result-panel" hidden style="text-align: center; background: var(--surface); padding: 40px 24px; border-radius: 8px; border: 1px solid var(--border);">
-            <span class="completion-mark" style="font-size: 40px; color: var(--lime); display: block; margin-bottom: 16px;">✳</span>
-            <h2 style="margin-top: 0; color: var(--ink); margin-bottom: 8px;">Hoàn thành bài Test!</h2>
-            <p style="font-size: 16px; color: var(--muted); margin-bottom: 32px;">Bạn đã trả lời đúng <b id="test-final-score" style="color: var(--ink); font-size: 20px;">0</b> trên tổng số <b id="test-final-total" style="color: var(--ink); font-size: 20px;">10</b> câu.</p>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-              <button id="test-retry-btn" class="restart-button" style="margin: 0;">Làm lại bài này</button>
-              <button id="test-back-setup-btn" class="restart-button" style="margin: 0; background: transparent; color: var(--ink);">Đổi cài đặt</button>
-            </div>
+          <!-- MÀN HÌNH KẾT QUẢ TỔNG (NẰM TRÊN CÙNG SAU KHI NỘP) -->
+          <div id="test-result-summary" hidden style="margin-bottom: 30px; text-align: center; background: var(--surface); padding: 30px 20px; border-radius: 8px; border: 1px solid var(--border);">
+            <span class="completion-mark" style="font-size: 40px; color: var(--lime); display: block; margin-bottom: 12px;">✳</span>
+            <h2 style="margin-top: 0; color: var(--ink); margin-bottom: 8px;">Đã nộp bài!</h2>
+            <p style="font-size: 16px; color: var(--muted); margin-bottom: 24px;">Bạn làm đúng <b id="test-final-score" style="color: var(--ink); font-size: 22px;">0</b> / <b id="test-final-total" style="color: var(--ink); font-size: 20px;">10</b> câu.</p>
+            <button id="test-retry-btn" class="restart-button" style="margin: 0 auto;">Làm lại bài khác</button>
+            <p style="font-size: 12px; color: var(--muted); margin-top: 16px;">Kéo xuống dưới để xem chi tiết từng câu và giải thích.</p>
           </div>
         </section>
 
@@ -249,13 +247,11 @@
             <button class="list-tab" type="button" role="tab" aria-selected="false" data-category="review"><span class="tab-mark tab-review">×</span> Review <span id="review-count">00</span></button>
           </div>
           <div class="word-list" id="word-list" aria-live="polite"></div>
-          <p class="list-footnote">Your learning progress is saved on this device.</p>
         </section>
       </main>
       <footer class="page-footer"><span>MAKE ROOM FOR NEW WORDS.</span><button class="reset-link" id="reset-progress" type="button">Reset progress</button></footer>
     </div>
 
-    <!-- Firebase & Scripts -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="sets.js?v=999"></script>
