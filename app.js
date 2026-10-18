@@ -42,18 +42,22 @@ const supportsSpeech = "speechSynthesis" in window && "SpeechSynthesisUtterance"
 let activeSetId = loadActiveSet();
 let statusBySet = loadProgress();
 let statusByWord = statusBySet[activeSetId] || (statusBySet[activeSetId] = {});
-let sessionResults = { review: 0, remembered: 0 };
 let activeCategory = "all";
 let voiceSettings = loadVoiceSettings();
 let availableVoices = [];
 
-// --- BIẾN TOÀN CỤC CHO TÍNH NĂNG SHUFFLE VÀ 15S/2M ---
+// --- BIẾN TOÀN CỤC CHO THUẬT TOÁN 15S/2M VÀ SHUFFLE ---
 let studyQueue = [];
 let currentCardObj = null;
 let totalCardsInSession = 0;
 let completedCardsInSession = 0;
 let waitingInterval = null;
-let currentOrderMode = "alphabetical"; // "alphabetical" | "random"
+let currentOrderMode = "alphabetical"; // "alphabetical" hoặc "random"
+
+// Bộ đếm theo dõi chính xác từng thẻ duy nhất
+let sessionReviewWords = {};
+let sessionRememberedWords = {};
+let cardsSeenInSession = {}; 
 
 function activeSet() {
   return setsById.get(activeSetId) || allSets[0] || { id: "default", name: "Empty", cards: [] };
@@ -272,12 +276,133 @@ function setCardFace(isFlipped) {
   }
 }
 
+// --- THUẬT TOÁN ĐIỀU KHIỂN RÚT THẺ VÀ HẸN GIỜ (15S / 2M) ---
+function gradeCard(status) {
+  if (!currentCardObj) return;
+
+  cardsSeenInSession[currentCardObj.word] = true;
+
+  if (status === "review") {
+    // Nếu bấm Hard -> Hẹn thẻ quay lại sau 15 giây
+    sessionReviewWords[currentCardObj.word] = true;
+    delete sessionRememberedWords[currentCardObj.word];
+    statusByWord[currentCardObj.word] = "review";
+    
+    currentCardObj.step = 0;
+    currentCardObj.availableAt = Date.now() + 15000;
+    studyQueue.push(currentCardObj); // Đưa lại vào hàng đợi
+    
+  } else if (status === "remembered") {
+    if (currentCardObj.step === 0) {
+      // Bấm Easy lần 1 -> Lên level, hẹn quay lại sau 2 phút
+      currentCardObj.step = 1;
+      currentCardObj.availableAt = Date.now() + 120000;
+      studyQueue.push(currentCardObj);
+    } else {
+      // Bấm Easy lần 2 (sau khi đã chờ 2 phút) -> Tốt nghiệp thẻ này!
+      sessionRememberedWords[currentCardObj.word] = true;
+      delete sessionReviewWords[currentCardObj.word];
+      statusByWord[currentCardObj.word] = "remembered";
+      completedCardsInSession++;
+    }
+  }
+
+  currentCardObj = null;
+  saveProgress();
+  renderSetProgress();
+  renderNextCard(); // Tìm thẻ phù hợp tiếp theo để rút
+}
+
+function renderNextCard() {
+  if (waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
+
+  if (studyQueue.length === 0 && !currentCardObj) {
+    showCompletion();
+    return;
+  }
+
+  const now = Date.now();
+  let availableCards = [];
+  
+  // Tìm TẤT CẢ các thẻ đã "đến giờ" xuất hiện
+  for (let i = 0; i < studyQueue.length; i++) {
+     if (studyQueue[i].availableAt <= now) {
+        availableCards.push({ card: studyQueue[i], index: i });
+     }
+  }
+
+  let nextIdx = -1;
+  if (availableCards.length > 0) {
+     // KIẾN TRÚC MỚI: Luôn ưu tiên hiển thị các thẻ ôn tập (đã từng xem) lên trước thẻ mới tinh
+     let reviews = availableCards.filter(function(item) { return item.card.availableAt > 0; });
+     if (reviews.length > 0) {
+        // Nếu có nhiều thẻ ôn tập, bốc thẻ bị quá hạn lâu nhất
+        reviews.sort(function(a, b) { return a.card.availableAt - b.card.availableAt; });
+        nextIdx = reviews[0].index;
+     } else {
+        // Nếu không có thẻ ôn tập nào, bốc thẻ mới tinh (vẫn giữ đúng thứ tự A-Z hoặc Shuffle)
+        nextIdx = availableCards[0].index;
+     }
+  }
+
+  if (nextIdx !== -1) {
+    // Có thẻ sẵn sàng -> Bật hiển thị flashcard
+    const waitPanel = document.querySelector("#review-waiting");
+    if (waitPanel) waitPanel.hidden = true;
+    const cardScene = document.querySelector("#card-scene");
+    if (cardScene) cardScene.hidden = false;
+    const answerArea = document.querySelector("#answer-area");
+    if (answerArea) answerArea.hidden = false;
+
+    currentCardObj = studyQueue.splice(nextIdx, 1)[0];
+    renderCard();
+  } else {
+    // Tất cả các thẻ đều đang bị kẹt hẹn giờ 15s/2m ở tương lai -> Bật màn hình đồng hồ chờ
+    currentCardObj = null;
+    const cardScene = document.querySelector("#card-scene");
+    if (cardScene) cardScene.hidden = true;
+    const answerArea = document.querySelector("#answer-area");
+    if (answerArea) answerArea.hidden = true;
+    const waitPanel = document.querySelector("#review-waiting");
+    if (waitPanel) waitPanel.hidden = false;
+
+    // Tìm thẻ có thời gian chờ ngắn nhất để đếm ngược
+    let minTime = studyQueue[0].availableAt;
+    for (let j = 1; j < studyQueue.length; j++) {
+      if (studyQueue[j].availableAt < minTime) minTime = studyQueue[j].availableAt;
+    }
+
+    updateCountdown(minTime);
+    waitingInterval = setInterval(function() {
+      if (Date.now() >= minTime) {
+        renderNextCard(); 
+      } else {
+        updateCountdown(minTime);
+      }
+    }, 1000);
+  }
+}
+
+function updateCountdown(targetTime) {
+  const diff = Math.max(0, Math.ceil((targetTime - Date.now()) / 1000));
+  const m = String(Math.floor(diff / 60)).padStart(2, '0');
+  const s = String(diff % 60).padStart(2, '0');
+  const el = document.querySelector("#review-countdown");
+  if (el) el.textContent = m + ":" + s;
+}
+
 function renderCard() {
   const entry = currentWord();
   if (!entry) return;
   
+  // Tính toán số chỉ mục hiện tại (VD: thẻ số 1/10)
+  let displayIndex = Object.keys(cardsSeenInSession).length;
+  if (!cardsSeenInSession[entry.word]) displayIndex += 1;
+  if (displayIndex > totalCardsInSession) displayIndex = totalCardsInSession;
+  if (displayIndex === 0) displayIndex = 1;
+
   const cardIndex = document.querySelector("#card-index");
-  if (cardIndex) cardIndex.innerHTML = formatCount(completedCardsInSession + 1) + " <span>/ " + formatCount(totalCardsInSession) + "</span>";
+  if (cardIndex) cardIndex.innerHTML = formatCount(displayIndex) + " <span>/ " + formatCount(totalCardsInSession) + "</span>";
   
   const frontPos = document.querySelector("#front-pos");
   if (frontPos) frontPos.textContent = (entry.pos || "word").toUpperCase();
@@ -320,7 +445,7 @@ function renderCard() {
   }
   
   const progressLabel = document.querySelector("#progress-label");
-  if (progressLabel) progressLabel.innerHTML = formatCount(completedCardsInSession + 1) + " <span>/</span> " + formatCount(totalCardsInSession);
+  if (progressLabel) progressLabel.innerHTML = formatCount(displayIndex) + " <span>/</span> " + formatCount(totalCardsInSession);
   
   if (progressTrack) {
     progressTrack.setAttribute("aria-valuemax", String(totalCardsInSession));
@@ -329,121 +454,21 @@ function renderCard() {
   const fill = document.querySelector("#progress-fill");
   if (fill) fill.style.width = ((completedCardsInSession / (totalCardsInSession || 1)) * 100) + "%";
   
+  // Cập nhật bộ đếm thẻ chính xác
   const revTally = document.querySelector("#review-tally");
-  if (revTally) revTally.textContent = String(sessionResults.review);
+  if (revTally) revTally.textContent = String(Object.keys(sessionReviewWords).length);
   const remTally = document.querySelector("#remember-tally");
-  if (remTally) remTally.textContent = String(sessionResults.remembered);
+  if (remTally) remTally.textContent = String(Object.keys(sessionRememberedWords).length);
   
-  const sessNote = document.querySelector("#session-note");
-  if (sessNote) sessNote.textContent = completedCardsInSession === 0 ? "Take a breath. There’s no rush." : "One small step at a time.";
-  
-  // Nâng cấp: Hiển thị nhãn thời gian tùy theo Step của thẻ
+  // Cập nhật nhãn Delay tùy theo thẻ đang ở Step 0 hay Step 1
   const easyDelay = document.querySelector("#easy-delay");
   if (easyDelay) {
     easyDelay.textContent = currentCardObj.step === 0 ? "Show in 2 min" : "Finish";
   }
-
+  
   renderSetProgress();
   setCardFace(false);
   if (voiceSettings.onCard && studyView && !studyView.hidden) speakWord(entry.word);
-}
-
-// --- THUẬT TOÁN ĐIỀU CHỈNH THỜI GIAN LẶP LẠI (15S / 2M) ---
-function gradeCard(status) {
-  if (!currentCardObj) return;
-
-  if (status === "review") {
-    // Nhấn Khó (Hard) -> Đưa về Step 0, Hẹn 15 giây sau
-    sessionResults.review++;
-    statusByWord[currentCardObj.word] = "review";
-    currentCardObj.step = 0;
-    currentCardObj.availableAt = Date.now() + 15000;
-    studyQueue.push(currentCardObj);
-  } else if (status === "remembered") {
-    // Nhấn Dễ (Easy)
-    if (currentCardObj.step === 0) {
-      // Nếu mới học -> Nâng lên Step 1, Hẹn 2 phút sau
-      currentCardObj.step = 1;
-      currentCardObj.availableAt = Date.now() + 120000;
-      studyQueue.push(currentCardObj);
-    } else {
-      // Nếu đã ở Step 1 -> Tốt nghiệp! Loại khỏi hàng đợi.
-      sessionResults.remembered++;
-      statusByWord[currentCardObj.word] = "remembered";
-      completedCardsInSession++;
-    }
-  }
-
-  currentCardObj = null;
-  saveProgress();
-  renderSetProgress();
-  renderNextCard(); // Rút thẻ tiếp theo trong hàng đợi
-}
-
-// --- HÀM TÌM THẺ TIẾP THEO TRONG HÀNG ĐỢI HOẶC CHỜ ---
-function renderNextCard() {
-  if (waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
-
-  // Nếu hàng đợi rỗng và không còn thẻ đang cầm -> Kết thúc
-  if (studyQueue.length === 0 && !currentCardObj) {
-    showCompletion();
-    return;
-  }
-
-  const now = Date.now();
-  let nextIdx = -1;
-  // Tìm thẻ có thời gian khả dụng <= thời gian hiện tại
-  for (let i = 0; i < studyQueue.length; i++) {
-    if (studyQueue[i].availableAt <= now) {
-      nextIdx = i;
-      break;
-    }
-  }
-
-  if (nextIdx !== -1) {
-    // Có thẻ sẵn sàng -> Hiển thị màn hình Flashcard
-    const waitPanel = document.querySelector("#review-waiting");
-    if (waitPanel) waitPanel.hidden = true;
-    const cardScene = document.querySelector("#card-scene");
-    if (cardScene) cardScene.hidden = false;
-    const answerArea = document.querySelector("#answer-area");
-    if (answerArea) answerArea.hidden = false;
-
-    currentCardObj = studyQueue.splice(nextIdx, 1)[0];
-    renderCard();
-  } else {
-    // Tất cả các thẻ đều đang bị hẹn giờ trong tương lai -> Hiện đồng hồ đếm ngược
-    currentCardObj = null;
-    const cardScene = document.querySelector("#card-scene");
-    if (cardScene) cardScene.hidden = true;
-    const answerArea = document.querySelector("#answer-area");
-    if (answerArea) answerArea.hidden = true;
-    const waitPanel = document.querySelector("#review-waiting");
-    if (waitPanel) waitPanel.hidden = false;
-
-    // Tìm thời gian chờ ngắn nhất
-    let minTime = studyQueue[0].availableAt;
-    for (let j = 1; j < studyQueue.length; j++) {
-      if (studyQueue[j].availableAt < minTime) minTime = studyQueue[j].availableAt;
-    }
-
-    updateCountdown(minTime);
-    waitingInterval = setInterval(function() {
-      if (Date.now() >= minTime) {
-        renderNextCard(); // Đến giờ thì tự động load thẻ ra
-      } else {
-        updateCountdown(minTime);
-      }
-    }, 1000);
-  }
-}
-
-function updateCountdown(targetTime) {
-  const diff = Math.max(0, Math.ceil((targetTime - Date.now()) / 1000));
-  const m = String(Math.floor(diff / 60)).padStart(2, '0');
-  const s = String(diff % 60).padStart(2, '0');
-  const el = document.querySelector("#review-countdown");
-  if (el) el.textContent = m + ":" + s;
 }
 
 function showCompletion() {
@@ -463,20 +488,26 @@ function showCompletion() {
   if (fill) fill.style.width = "100%";
   if (progressTrack) progressTrack.setAttribute("aria-valuenow", String(totalCardsInSession));
   
+  const finalReview = Object.keys(sessionReviewWords).length;
+  const finalRemember = Object.keys(sessionRememberedWords).length;
   const compCopy = document.querySelector("#completion-copy");
-  if (compCopy) compCopy.textContent = sessionResults.remembered + " remembered · " + sessionResults.review + " to revisit. Every word gets easier with practice.";
+  if (compCopy) compCopy.textContent = finalRemember + " remembered · " + finalReview + " to revisit. Every word gets easier with practice.";
 }
 
-// --- THUẬT TOÁN SHUFFLE (TRỘN THẺ) VÀ BẮT ĐẦU BÀI HỌC ---
+// --- THUẬT TOÁN SHUFFLE (TRỘN BÀI) ĐƯỢC FIX LỖI ---
 function startStudy() {
-  sessionResults = { review: 0, remembered: 0 };
+  // Làm sạch dữ liệu session
+  sessionReviewWords = {};
+  sessionRememberedWords = {};
+  cardsSeenInSession = {};
   completedCardsInSession = 0;
+
   const cards = activeSet().cards;
   totalCardsInSession = cards.length;
 
   let initialWords = cards.map(function(c) { return c.word; });
   
-  // Tính năng Shuffle
+  // Trộn thẻ chính xác 100%
   if (currentOrderMode === "random") {
     for (let i = initialWords.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -485,17 +516,13 @@ function startStudy() {
       initialWords[j] = temp;
     }
   } else {
-    // Thứ tự A-Z
+    // Sắp xếp A-Z
     initialWords.sort(function(a, b) { return a.localeCompare(b); });
   }
 
-  // Khởi tạo hàng đợi bài học (Tất cả bắt đầu từ Step 0)
+  // Khởi tạo hàng đợi với Step 0
   studyQueue = initialWords.map(function(w) {
-    return {
-      word: w,
-      availableAt: 0,
-      step: 0
-    };
+    return { word: w, availableAt: 0, step: 0 };
   });
 
   const completionPanel = document.querySelector("#completion-panel");
@@ -615,7 +642,7 @@ function renderHome() {
       delBtn.style.zIndex = "10";
       
       delBtn.addEventListener("click", async function(e) {
-        e.stopPropagation(); // Ngăn mở bài học khi bấm vào xóa
+        e.stopPropagation();
         if (confirm("Bạn có chắc chắn muốn xóa vĩnh viễn bộ từ: " + set.name + "?")) {
           delBtn.textContent = "...";
           try {
@@ -998,10 +1025,9 @@ if (flashcard) {
   });
 }
 
-// BẮT SỰ KIỆN NÚT CHỌN THỨ TỰ (A-Z VÀ RANDOM)
+// BẮT SỰ KIỆN NÚT CHỌN THỨ TỰ (A-Z VÀ RANDOM) - BẢN FIX CHỐNG LỖI CỨNG ĐẦU
 document.querySelectorAll(".study-order-button").forEach(function(btn) {
   btn.addEventListener("click", function() {
-    // Đổi màu nút được chọn
     document.querySelectorAll(".study-order-button").forEach(function(b) {
       b.classList.remove("is-active");
       b.setAttribute("aria-pressed", "false");
@@ -1009,15 +1035,17 @@ document.querySelectorAll(".study-order-button").forEach(function(btn) {
     btn.classList.add("is-active");
     btn.setAttribute("aria-pressed", "true");
     
-    // Lưu lại chế độ và tải lại bài học
-    currentOrderMode = btn.dataset.studyOrder;
+    // Đọc chính xác thuộc tính để không bị kẹt ở A-Z
+    currentOrderMode = btn.getAttribute("data-study-order");
+    
+    // Khi bấm nút Shuffle, bài học hiện tại sẽ được tải lại và xáo trộn lập tức
     if (studyView && !studyView.hidden) {
       startStudy();
     }
   });
 });
 
-// BẮT SỰ KIỆN NÚT FINISH (KẾT THÚC BÀI HỌC SỚM TRONG LÚC CHỜ)
+// BẮT SỰ KIỆN NÚT FINISH (KẾT THÚC BÀI HỌC SỚM TRONG LÚC CHỜ ĐỒNG HỒ)
 const finishEarlyBtn = document.querySelector("#finish-early");
 if (finishEarlyBtn) {
   finishEarlyBtn.addEventListener("click", function() {
@@ -1064,7 +1092,6 @@ if (resetProg) {
     if (Object.keys(statusByWord).length === 0) return;
     statusByWord = {};
     statusBySet[activeSetId] = statusByWord;
-    sessionResults = { review: 0, remembered: 0 };
     saveProgress();
     startStudy();
     renderHome();
