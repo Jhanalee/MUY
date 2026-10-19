@@ -6,14 +6,15 @@
     <meta name="theme-color" content="#10120f" />
     <meta name="description" content="A focused space to study SAT vocabulary." />
     <title>SAT Vocabulary Master</title>
-    
+    <!-- SAT Vocabulary Master baiting -->
+     
     <!-- ĐÃ PHỤC HỒI POPUP BÁO LỖI -->
     <script>
       window.onerror = function(msg, url, line) { 
           alert("BÁO LỖI HỆ THỐNG:\n" + msg + "\nTại dòng: " + line + "\nHãy chụp màn hình này lại!"); 
       };
     </script>
-
+    <link rel="icon" type="image/jpeg" href="/download.jpg">
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
@@ -31,6 +32,7 @@
           <button class="nav-link" type="button" data-view="words">My words</button>
           <button class="nav-link" type="button" data-view="credit">Credit</button>
         </nav>
+        
         <div class="topbar-tools">
           <details class="settings-menu" id="settings-menu">
             <summary class="settings-trigger" aria-label="Open settings" title="Settings">
@@ -57,7 +59,7 @@
         <!-- HOME VIEW -->
         <section class="view home-view" id="home-view">
           <div class="home-heading">
-            <div><p class="eyebrow">YOUR STUDY HUB</p><h1 id="home-title">Choose a set.</h1></div>
+            <div><p class="eyebrow">YOUR STUDY HUB</p><h1 id="home-title">Choose a set to start jorking.</h1></div>
             <button id="toggle-add-set-btn" type="button" class="restart-button">+ Create new set</button>
           </div>
 
@@ -242,7 +244,7 @@
         <!-- DICTIONARY VIEW -->
         <section class="view words-view" id="words-view" hidden>
           <div class="words-heading" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px;">
-            <div><p class="eyebrow">YOUR DICTIONARY</p><h1>My words.</h1></div>
+            <div><p class="eyebrow">YOUR DICKTIONARY</p><h1>My words.</h1></div>
             <div style="display:flex; gap: 15px; align-items: center;">
                 <select class="custom-select set-select" id="words-set-select" style="min-width: 200px;"></select>
                 <button class="restart-button" id="back-to-study" type="button">Study this set ➔</button>
@@ -262,11 +264,13 @@
             <h1 class="credit-title">ĐAY GĂNG</h1>
             <p class="credit-subtitle">The Mastermind Developer</p>
             <p style="color: var(--subtle); margin-top: 40px; font-size: 14px; max-width: 500px; line-height: 1.6;">"Designed with passion. Coded with persistence. Dedicated to all SAT warriors out there aiming for perfection."</p>
+            <p style="color: var(--subtle); margin-top: 40px; font-size: 14px; max-width: 500px; line-height: 1.6;">vai cut</p>
+            <img src="download.jpg" style="aspect-ratio: 2 / 1; max-width: 70%;" alt="Man que" title="Man que" />
         </section>
 
       </main>
       <footer class="page-footer">
-          <span>MAKE ROOM FOR NEW WORDS.</span>
+          <span>IT'S A BEAUTIFUL THING TO MAKE MORE</span>
           <button class="restart-button" id="reset-progress" type="button" style="padding: 8px 16px; font-size: 10px; background: transparent; border-color: var(--rose); color: var(--rose);">Reset All Progress</button>
       </footer>
     </div>

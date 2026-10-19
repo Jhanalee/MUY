@@ -376,7 +376,7 @@ function submitCrossword() {
   });
   _hide("#cw-submit-btn"); _show("#cw-result-summary");
   var t=_el("#cw-result-title");
-  if(t){ t.textContent = allC ? "Tuyệt Vời! Ô chữ đã giải mã 100%!" : "Chưa hoàn hảo. Xem lại ô đỏ!"; t.style.color = allC ? "var(--lime)" : "var(--rose)"; }
+  if(t){ t.textContent = allC ? "Tuyệt Vời! MẸ MÀY BÉO!" : "NHƯ TRÁI DỨNG"; t.style.color = allC ? "var(--lime)" : "var(--rose)"; }
   window.scrollTo(0, document.body.scrollHeight);
 }
 
