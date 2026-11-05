@@ -1,9 +1,13 @@
 /* global firebase, sets */
+
 var firebaseConfig = { apiKey: "AIzaSyCX_30nYbSoKmyyLBQBjTW_0K1zTUnm6CU", authDomain: "muy-flashcards.firebaseapp.com", projectId: "muy-flashcards", storageBucket: "muy-flashcards.firebasestorage.app", messagingSenderId: "745907745384", appId: "1:745907745384:web:826faa570f76bcfdeec1dd", measurementId: "G-L72QT1NLPH" };
+
+// BIẾN FIREBASE
 var db = null;
 var auth = null;
 var authProvider = null;
 var currentUser = null;
+
 try { 
     if (typeof firebase !== "undefined") { 
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); 
@@ -12,6 +16,7 @@ try {
         authProvider = new firebase.auth.GoogleAuthProvider();
     } 
 } catch (e) { console.warn("Lỗi kết nối Firebase:", e); }
+
 var storageKey = "marginalia-sat-progress-v2", activeSetStorageKey = "marginalia-sat-active-set-v1", voiceSettingsStorageKey = "sat-vocab-voice-settings-v1", themeStorageKey = "sat-vocab-theme-v1";
 var reelsSrsKey = "sat-reels-srs-v1";
 
@@ -56,6 +61,7 @@ function currentWord() { if (!currentCardObj) return null; var c = activeSet().c
 function formatCount(c) { return String(c).length<2 ? "0"+c : String(c); }
 function highlightWordHtml(sen, word) { if (!sen) return ""; var cw = (word||"").trim(); var pos = sen.toLowerCase().indexOf(cw.toLowerCase()); var len = cw.length; if(pos===-1 && cw.length>=3) { pos = sen.toLowerCase().indexOf(cw.slice(0,4).toLowerCase()); len = cw.length; } if (pos===-1) return sen; return sen.slice(0,pos) + "<em>" + sen.slice(pos, pos+len) + "</em>" + sen.slice(pos+len); }
 function setCardFace(isF) { var fc = _el("#flashcard"); if (!fc) return; isF ? fc.classList.add("is-flipped") : fc.classList.remove("is-flipped"); var f = _el("#card-front"), b = _el("#card-back"); if(f) f.setAttribute("aria-hidden", String(isF)); if(b) b.setAttribute("aria-hidden", String(!isF)); var sv = _el("#study-view"); if (isF && voiceSettings.onFlip && sv && !sv.hidden) { var e=currentWord(); if(e) speakWord(e.word); } }
+function cleanWord(w) { return w.replace(/[^a-zA-Z]/g,"").toUpperCase(); }
 
 function updateSelectDropdowns() {
   document.querySelectorAll(".set-select").forEach(function(select) {
@@ -99,6 +105,10 @@ function setView(view) {
   window.scrollTo(0,0);
 }
 
+// ==============================================
+// REELS (YOUTUBE SHORTS LAYOUT) & SOCIAL FEATURES
+// ==============================================
+
 function saveReelsSrs() { localStorage.setItem(reelsSrsKey, JSON.stringify(reelsSrsData)); }
 
 function getNextReelWord() {
@@ -107,11 +117,9 @@ function getNextReelWord() {
     if (c.length === 0) return null;
     
     var dueWords = c.filter(function(w) { return reelsSrsData[w.word] && reelsSrsData[w.word] <= now; });
-    
     if (dueWords.length > 0 && Math.random() > 0.5) {
         return dueWords[Math.floor(Math.random() * dueWords.length)];
     }
-    
     return c[Math.floor(Math.random() * c.length)];
 }
 
@@ -129,12 +137,12 @@ function createReelItem() {
     if (type === 4 && !hasSynonym) type = 2;
     if (type === 5 && !hasSynonym) type = 3;
 
-    // TẠO DETERMINISTIC ID ĐỂ LƯU COMMENT & SHARE MÀ KHÔNG TỐN SERVER
+    // ID định danh của Reel để lưu Comment/Like
     var reelId = activeSetId + "_" + cleanWord(wordObj.word) + "_T" + type;
     reelDiv.dataset.reelid = reelId;
 
     var contentBox = document.createElement("div");
-    contentBox.className = "reel-content-box";
+    contentBox.className = "reel-content-box"; // Nằm ở giữa, chừa chỗ bên phải cho nút
 
     var srsPanelHtml = `
         <div class="reel-srs-panel">
@@ -208,6 +216,7 @@ function createReelItem() {
         });
     }
 
+    // Các nút hẹn giờ SRS
     var srsBtns = contentBox.querySelectorAll('.rs-btn');
     srsBtns.forEach(btn => {
         btn.addEventListener('click', function() {
@@ -215,33 +224,33 @@ function createReelItem() {
             reelsSrsData[wordObj.word] = Date.now() + delayMs;
             saveReelsSrs();
             var nextReel = reelDiv.nextElementSibling;
-            if (nextReel) { container.scrollBy({ top: window.innerHeight, behavior: 'smooth' }); }
+            if (nextReel) { container.scrollBy({ top: container.clientHeight, behavior: 'smooth' }); }
         });
     });
 
     reelDiv.appendChild(contentBox);
 
-    // THÊM THANH SOCIAL TIKTOK STYLE
+    // THANH TƯƠNG TÁC (LIKE, COMMENT, SHARE) BÊN PHẢI (YOUTUBE SHORTS)
     var socialHtml = `
         <div class="reel-side-actions">
             <button class="action-btn btn-like" data-id="${reelId}">♥<span class="action-label">Like</span></button>
-            <button class="action-btn btn-comment" data-id="${reelId}">💬<span class="action-label">C.ment</span></button>
+            <button class="action-btn btn-comment" data-id="${reelId}">💬<span class="action-label">B.luận</span></button>
             <button class="action-btn btn-share" data-id="${reelId}">➦<span class="action-label">Share</span></button>
         </div>
     `;
     reelDiv.insertAdjacentHTML('beforeend', socialHtml);
 
-    // Gắn sự kiện Like (đổi màu) và Comment (Mở bottom sheet)
+    // Xử lý nút bấm tương tác
     var btnLike = reelDiv.querySelector('.btn-like');
     btnLike.addEventListener('click', function() { this.classList.toggle('liked'); });
 
     var btnComment = reelDiv.querySelector('.btn-comment');
-    btnComment.addEventListener('click', function() { openCommentSheet(reelId); });
+    btnComment.addEventListener('click', function() { window.openCommentSheet(reelId); });
 
     var btnShare = reelDiv.querySelector('.btn-share');
     btnShare.addEventListener('click', function() {
         var link = window.location.origin + window.location.pathname + "?reel=" + reelId;
-        navigator.clipboard.writeText(link).then(function() { alert("Đã copy link Reel để chia sẻ:\n" + link); });
+        navigator.clipboard.writeText(link).then(function() { alert("Đã copy link Reel để chia sẻ!"); });
     });
 
     container.appendChild(reelDiv);
@@ -256,12 +265,16 @@ function initReels() {
     createReelItem();
     
     container.addEventListener('scroll', function() {
-        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 100) {
+        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
             createReelItem(); 
         }
     });
 }
 
+
+// ==========================================
+// CÁC HÀM CŨ (HOME, STUDY, TEST, GAME)
+// ==========================================
 function renderHome() {
   var g=_el("#home-set-grid"); if(!g) return; g.innerHTML="";
   allSets.forEach(function(set, i){
@@ -318,8 +331,6 @@ function renderWords() {
 function startStudy() {
     sessionReviewWords={}; sessionRememberedWords={}; cardsSeenInSession={}; completedCardsInSession=0;
     var c = activeSet().cards; totalCardsInSession = c.length; 
-    
-    // Nếu set rỗng, không làm gì cả
     if(totalCardsInSession === 0) return;
     
     var iw = c.map(function(x){ return x.word; });
@@ -398,9 +409,6 @@ function showCompletion() {
   _txt("#completion-copy", Object.keys(sessionRememberedWords).length + " remembered · " + Object.keys(sessionReviewWords).length + " to revisit.");
 }
 
-function updateTestRangeBounds() { var max = activeSet().cards.length||1; var e = _el("#test-end-idx"); if(e){ e.max=max; if(!e.value || parseInt(e.value)>max) e.value=max; } }
-function normStr(s) { return (s||"").trim().toLowerCase().replace(/[.,!?;:()]/g,''); }
-
 function generateTestQuestions() {
   var ts = _el("#test-type-select"); if (ts) testMode = ts.value;
   var sIdx = parseInt(_getVal("#test-start-idx"))||1, eIdx = parseInt(_getVal("#test-end-idx"))||10;
@@ -437,9 +445,6 @@ function submitFullTest() {
   }
   _hide("#test-submit-btn"); _show("#test-result-summary"); _txt("#test-final-score", score); _txt("#test-final-total", testQuestions.length); window.scrollTo({top:0, behavior:'smooth'});
 }
-
-function updateCwRangeBounds() { var max = activeSet().cards.length||1; var e = _el("#cw-end-idx"); if(e){ e.max=max; if(!e.value || parseInt(e.value)>max) e.value=max; } }
-function cleanWord(w) { return w.replace(/[^a-zA-Z]/g,"").toUpperCase(); }
 
 function generateCrossword() {
   var sIdx = parseInt(_getVal("#cw-start-idx"))||1, eIdx = parseInt(_getVal("#cw-end-idx"))||10, cType = _getVal("#cw-clue-type-select") || "meaning";
@@ -499,83 +504,6 @@ function generateCrossword() {
   drawCrosswordGrid(); _hide("#cw-setup-panel"); _show("#cw-run-panel"); _show("#cw-submit-btn"); _hide("#cw-result-summary");
 }
 
-function drawCrosswordGrid() {
-  if(cwWordsPlaced.length===0) return;
-  var mX=999, mx=-999, mY=999, my=-999;
-  for(var k in cwGridData){ var p=k.split(','); var x=parseInt(p[0]), y=parseInt(p[1]); if(x<mX)mX=x; if(x>mx)mx=x; if(y<mY)mY=y; if(y>my)my=y; }
-  var cont = _el("#cw-grid-container"); var tb = document.createElement("table"); tb.className="cw-board";
-  
-  for(var r=mY; r<=my; r++){
-    var tr=document.createElement("tr");
-    for(var c=mX; c<=mx; c++){
-      var td=document.createElement("td"); td.className="cw-cell"; var cd=cwGridData[c+','+r];
-      if(!cd) td.classList.add("empty");
-      else {
-        var isS=false, sN=0;
-        for(var i=0; i<cwWordsPlaced.length; i++) if(cwWordsPlaced[i].x===c && cwWordsPlaced[i].y===r){ isS=true; sN=cwWordsPlaced[i].num; break; }
-        if(isS){ var sp=document.createElement("span"); sp.className="cw-number"; sp.textContent=sN; td.appendChild(sp); }
-        
-        var inp=document.createElement("input"); inp.type="text"; inp.className="cw-input"; inp.maxLength=1;
-        inp.setAttribute("autocomplete", "off"); inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "characters"); inp.setAttribute("spellcheck", "false");
-        inp.dataset.x=c; inp.dataset.y=r; inp.dataset.wids=cd.wordIds.join(",");
-        
-        inp.addEventListener("click", function(e){
-          var wids=e.target.dataset.wids.split(",");
-          if(wids.length>1 && document.activeElement===e.target){ cwCurrentWordId=(cwCurrentWordId==parseInt(wids[0]))?parseInt(wids[1]):parseInt(wids[0]); cwCurrentDir=getWordById(cwCurrentWordId).dir; highlightCurrentCwWord(); }
-        });
-        inp.addEventListener("focus", function(e){
-          var wids=e.target.dataset.wids.split(",");
-          if(cwCurrentWordId===null || wids.indexOf(String(cwCurrentWordId))===-1){ cwCurrentWordId=parseInt(wids[0]); cwCurrentDir=getWordById(cwCurrentWordId).dir; }
-          highlightCurrentCwWord(); setTimeout(function(){e.target.select();}, 10);
-        });
-        inp.addEventListener("keydown", function(e){
-          var cx=parseInt(e.target.dataset.x), cy=parseInt(e.target.dataset.y);
-          if(e.key==="Backspace"){ if(e.target.value===""){ e.preventDefault(); focusCwCell(cx-(cwCurrentDir==='H'?1:0), cy-(cwCurrentDir==='V'?1:0)); } else { e.target.value=""; e.preventDefault(); } } 
-          else if(e.key==="ArrowRight"){ e.preventDefault(); focusCwCell(cx+1,cy); } else if(e.key==="ArrowLeft"){ e.preventDefault(); focusCwCell(cx-1,cy); } else if(e.key==="ArrowDown"){ e.preventDefault(); focusCwCell(cx,cy+1); } else if(e.key==="ArrowUp"){ e.preventDefault(); focusCwCell(cx,cy-1); }
-        });
-        inp.addEventListener("input", function(e){
-          var v=e.target.value.replace(/[^a-zA-Z]/g,"").toUpperCase();
-          if(v.length>0){ e.target.value=v.charAt(v.length-1); focusCwCell(parseInt(e.target.dataset.x)+(cwCurrentDir==='H'?1:0), parseInt(e.target.dataset.y)+(cwCurrentDir==='V'?1:0)); } else e.target.value="";
-        });
-        td.appendChild(inp);
-      } tr.appendChild(td);
-    } tb.appendChild(tr);
-  }
-  if(cont) { cont.innerHTML=""; cont.appendChild(tb); }
-
-  var aL = _el("#cw-across-list"), dL = _el("#cw-down-list");
-  if(aL) aL.innerHTML=""; if(dL) dL.innerHTML="";
-  for(var w=0; w<cwWordsPlaced.length; w++){
-    var wp=cwWordsPlaced[w], li=document.createElement("li"); li.className="cw-clue-item"; li.id="cw-clue-"+wp.id;
-    li.innerHTML="<span class='cw-clue-num'>"+wp.num+".</span> "+wp.clue;
-    if(wp.dir==='H' && aL) aL.appendChild(li); else if(dL) dL.appendChild(li);
-  }
-}
-
-function getWordById(id) { for(var i=0; i<cwWordsPlaced.length; i++) if(cwWordsPlaced[i].id===id) return cwWordsPlaced[i]; return null; }
-function focusCwCell(x,y) { var inp=_el(".cw-input[data-x='"+x+"'][data-y='"+y+"']"); if(inp) inp.focus(); }
-function highlightCurrentCwWord() {
-  document.querySelectorAll(".cw-cell").forEach(function(c){c.classList.remove("active-word");});
-  document.querySelectorAll(".cw-clue-item").forEach(function(c){c.classList.remove("active");});
-  if(cwCurrentWordId===null) return;
-  document.querySelectorAll(".cw-input").forEach(function(inp){ if(inp.dataset.wids.split(",").indexOf(String(cwCurrentWordId))!==-1) inp.parentElement.classList.add("active-word"); });
-  var el=_el("#cw-clue-"+cwCurrentWordId); if(el) el.classList.add("active");
-}
-
-function submitCrossword() {
-  if(!confirm("Chốt đáp án và kiểm tra?")) return;
-  var allC=true;
-  document.querySelectorAll(".cw-input").forEach(function(inp){
-    var ex=cwGridData[inp.dataset.x+','+inp.dataset.y].char; inp.disabled=true;
-    if(inp.value.toUpperCase()===ex) inp.parentElement.classList.add("correct");
-    else { inp.parentElement.classList.add("incorrect"); inp.value=ex; allC=false; }
-  });
-  _hide("#cw-submit-btn"); _show("#cw-result-summary");
-  var t=_el("#cw-result-title");
-  if(t){ t.textContent = allC ? "Tuyệt Vời! Ô chữ đã giải mã 100%!" : "Chưa hoàn hảo. Xem lại ô đỏ!"; t.style.color = allC ? "var(--lime)" : "var(--rose)"; }
-  window.scrollTo(0, document.body.scrollHeight);
-}
-
 function parseRawVocabulary(text) {
   var lines=text.trim().split("\n"), cards=[];
   lines.forEach(function(l){
@@ -600,6 +528,72 @@ function parseRawVocabulary(text) {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
+
+  // === FIREBASE AUTH & USER PROFILE ===
+  if (auth) {
+      auth.onAuthStateChanged(function(user) {
+          var authBtn = _el("#auth-btn");
+          var userInfo = _el("#user-info");
+          var userAvatar = _el("#user-avatar");
+          if (user) {
+              currentUser = user;
+              if(authBtn) authBtn.style.display = "none";
+              if(userInfo) userInfo.style.display = "flex";
+              if(userAvatar) userAvatar.src = user.photoURL;
+          } else {
+              currentUser = null;
+              if(authBtn) { authBtn.style.display = "block"; authBtn.textContent = "Đăng nhập"; }
+              if(userInfo) userInfo.style.display = "none";
+          }
+      });
+      
+      _bind("#auth-btn", "click", function() {
+          auth.signInWithPopup(authProvider).catch(function(error) { alert("Lỗi đăng nhập: " + error.message); });
+      });
+      
+      _bind("#user-info", "click", function() {
+          if(confirm("Bạn muốn đăng xuất?")) auth.signOut();
+      });
+  }
+
+  // === REELS COMMENT SHEET LOGIC ===
+  var currentReelCommentId = null;
+  window.openCommentSheet = function(reelId) {
+      currentReelCommentId = reelId;
+      _el("#comment-overlay").classList.add("show");
+      _el("#comment-sheet").classList.add("show");
+      _el("#comment-list").innerHTML = "<p style='color:var(--muted);text-align:center;'>Đang tải bình luận...</p>";
+      _el("#comment-input").value = "";
+      
+      setTimeout(function() {
+          _el("#comment-list").innerHTML = `
+              <div class="comment-item">
+                  <div class="comment-author"><img src="https://ui-avatars.com/api/?name=SAT+Master&background=d5e88b&color=000"> SAT Master</div>
+                  <div class="comment-text">Từ này hay thi trong phần Reading lắm nè mọi người! </div>
+              </div>
+          `;
+          _el("#comment-count").textContent = "1";
+      }, 500);
+  };
+
+  _bind("#close-comment", "click", function() { _el("#comment-overlay").classList.remove("show"); _el("#comment-sheet").classList.remove("show"); });
+  _bind("#comment-overlay", "click", function() { _el("#comment-overlay").classList.remove("show"); _el("#comment-sheet").classList.remove("show"); });
+
+  _bind("#send-comment-btn", "click", function() {
+      if (!currentUser) { alert("Vui lòng đăng nhập Google để bình luận!"); return; }
+      var txt = _el("#comment-input").value.trim();
+      if (!txt) return;
+      
+      var newHtml = `
+          <div class="comment-item">
+              <div class="comment-author"><img src="${currentUser.photoURL}"> ${currentUser.displayName}</div>
+              <div class="comment-text">${txt}</div>
+          </div>
+      `;
+      _el("#comment-list").insertAdjacentHTML("beforeend", newHtml);
+      _el("#comment-input").value = "";
+      _el("#comment-count").textContent = parseInt(_el("#comment-count").textContent) + 1;
+  });
 
   var bsf = _el("#btn-save-firebase");
   if (bsf) {
@@ -710,87 +704,11 @@ document.addEventListener("DOMContentLoaded", function() {
       if(e.key === " "){ e.preventDefault(); if(ffc) setCardFace(!ffc.classList.contains("is-flipped")); }
       if(e.key === "ArrowLeft") gradeCard("review");
       if(e.key === "ArrowRight") gradeCard("remembered");
-      // === LOGIC FIREBASE AUTH VÀ ĐĂNG NHẬP ===
-  if (auth) {
-      auth.onAuthStateChanged(function(user) {
-          var authBtn = _el("#auth-btn");
-          var userInfo = _el("#user-info");
-          var userAvatar = _el("#user-avatar");
-          if (user) {
-              currentUser = user;
-              if(authBtn) authBtn.style.display = "none";
-              if(userInfo) userInfo.style.display = "flex";
-              if(userAvatar) userAvatar.src = user.photoURL;
-          } else {
-              currentUser = null;
-              if(authBtn) { authBtn.style.display = "block"; authBtn.textContent = "Đăng nhập"; }
-              if(userInfo) userInfo.style.display = "none";
-          }
-      });
-      
-      _bind("#auth-btn", "click", function() {
-          auth.signInWithPopup(authProvider).catch(function(error) { alert("Lỗi đăng nhập: " + error.message); });
-      });
-      
-      _bind("#user-info", "click", function() {
-          if(confirm("Bạn muốn đăng xuất?")) auth.signOut();
-      });
-  }
-
-  // === LOGIC MỞ ĐÓNG VÀ HIỂN THỊ COMMENT SHEET ===
-  var currentReelCommentId = null;
-  window.openCommentSheet = function(reelId) {
-      currentReelCommentId = reelId;
-      _el("#comment-overlay").classList.add("show");
-      _el("#comment-sheet").classList.add("show");
-      _el("#comment-list").innerHTML = "<p style='color:var(--muted);text-align:center;'>Đang tải bình luận...</p>";
-      _el("#comment-input").value = "";
-      
-      // Load comment từ Firebase (Dùng tạm dữ liệu giả nếu chưa setup Firebase Rules)
-      setTimeout(function() {
-          _el("#comment-list").innerHTML = `
-              <div class="comment-item">
-                  <div class="comment-author"><img src="https://ui-avatars.com/api/?name=SAT+Master&background=d5e88b&color=000"> SAT Master</div>
-                  <div class="comment-text">Từ này hay thi trong phần Reading lắm nè mọi người! (Minh họa)</div>
-              </div>
-          `;
-          _el("#comment-count").textContent = "1";
-      }, 500);
-  };
-
-  _bind("#close-comment", "click", function() {
-      _el("#comment-overlay").classList.remove("show");
-      _el("#comment-sheet").classList.remove("show");
-  });
-  _bind("#comment-overlay", "click", function() {
-      _el("#comment-overlay").classList.remove("show");
-      _el("#comment-sheet").classList.remove("show");
-  });
-
-  _bind("#send-comment-btn", "click", function() {
-      if (!currentUser) { alert("Vui lòng đăng nhập để bình luận!"); return; }
-      var txt = _el("#comment-input").value.trim();
-      if (!txt) return;
-      
-      // Đăng comment tạm lên giao diện ngay lập tức
-      var newHtml = `
-          <div class="comment-item">
-              <div class="comment-author"><img src="${currentUser.photoURL}"> ${currentUser.displayName}</div>
-              <div class="comment-text">${txt}</div>
-          </div>
-      `;
-      _el("#comment-list").insertAdjacentHTML("beforeend", newHtml);
-      _el("#comment-input").value = "";
-      _el("#comment-count").textContent = parseInt(_el("#comment-count").textContent) + 1;
-      
-      // (Bước sau chúng ta sẽ code lệnh Push dòng chữ này lên Firebase Firestore)
-  });
   });
 
   applyTheme(loadTheme());
   updateSelectDropdowns();
   
-  // Khởi động
   startStudy();
   renderWords();
   renderHome();
