@@ -47,7 +47,7 @@ function _getVal(s) { var e = _el(s); return e ? e.value : ""; }
 function _bind(s, ev, cb) { var e = _el(s); if(e) e.addEventListener(ev, cb); }
 
 // ==============================================
-// HÀM GLOBAL (MỞ ĐÓNG COMMENT TRÁNH LỖI SCOPE)
+// HÀM GLOBAL COMMENT TRƯỢT
 // ==============================================
 var currentReelCommentId = null;
 
@@ -58,7 +58,6 @@ function openCommentSheet(reelId) {
     _el("#comment-list").innerHTML = "<p style='color:var(--muted);text-align:center;'>Đang tải bình luận...</p>";
     _el("#comment-input").value = "";
     
-    // Tạo data giả định lập tức
     setTimeout(function() {
         _el("#comment-list").innerHTML = `
             <div class="comment-item">
@@ -92,6 +91,9 @@ function sendNewComment() {
 }
 
 
+// ==============================================
+// CÁC HÀM TIỆN ÍCH LÕI
+// ==============================================
 function activeSet() { return setsById.get(activeSetId) || allSets[0] || { id: "default", name: "Empty", cards: [] }; }
 function loadActiveSet() { try { return setsById.has(localStorage.getItem(activeSetStorageKey)) ? localStorage.getItem(activeSetStorageKey) : (allSets[0] ? allSets[0].id : "essentials"); } catch (e) { return allSets[0] ? allSets[0].id : "essentials"; } }
 function loadVoiceSettings() { var d = { gender: "female", speed: "normal", onCard: true, onFlip: true }; try { var s = JSON.parse(localStorage.getItem(voiceSettingsStorageKey)); if (!s) return d; return { gender: s.gender||d.gender, speed: s.speed||d.speed, onCard: s.onCard!==false, onFlip: s.onFlip!==false }; } catch (e) { return d; } }
@@ -108,6 +110,21 @@ function formatCount(c) { return String(c).length<2 ? "0"+c : String(c); }
 function highlightWordHtml(sen, word) { if (!sen) return ""; var cw = (word||"").trim(); var pos = sen.toLowerCase().indexOf(cw.toLowerCase()); var len = cw.length; if(pos===-1 && cw.length>=3) { pos = sen.toLowerCase().indexOf(cw.slice(0,4).toLowerCase()); len = cw.length; } if (pos===-1) return sen; return sen.slice(0,pos) + "<em>" + sen.slice(pos, pos+len) + "</em>" + sen.slice(pos+len); }
 function setCardFace(isF) { var fc = _el("#flashcard"); if (!fc) return; isF ? fc.classList.add("is-flipped") : fc.classList.remove("is-flipped"); var f = _el("#card-front"), b = _el("#card-back"); if(f) f.setAttribute("aria-hidden", String(isF)); if(b) b.setAttribute("aria-hidden", String(!isF)); var sv = _el("#study-view"); if (isF && voiceSettings.onFlip && sv && !sv.hidden) { var e=currentWord(); if(e) speakWord(e.word); } }
 function cleanWord(w) { return w.replace(/[^a-zA-Z]/g,"").toUpperCase(); }
+
+// ==============================================
+// UPDATE RANGE & NAVIGATION (ĐÃ THÊM LẠI CÁC HÀM BỊ THIẾU)
+// ==============================================
+function updateTestRangeBounds() { 
+    var max = activeSet().cards.length||1; 
+    var e = _el("#test-end-idx"); 
+    if(e){ e.max=max; if(!e.value || parseInt(e.value)>max) e.value=max; } 
+}
+
+function updateCwRangeBounds() { 
+    var max = activeSet().cards.length||1; 
+    var e = _el("#cw-end-idx"); 
+    if(e){ e.max=max; if(!e.value || parseInt(e.value)>max) e.value=max; } 
+}
 
 function updateSelectDropdowns() {
   document.querySelectorAll(".set-select").forEach(function(select) {
@@ -151,10 +168,10 @@ function setView(view) {
   window.scrollTo(0,0);
 }
 
+
 // ==============================================
 // REELS TIKTOK STYLE
 // ==============================================
-
 function saveReelsSrs() { localStorage.setItem(reelsSrsKey, JSON.stringify(reelsSrsData)); }
 
 function getNextReelWord() {
@@ -235,7 +252,7 @@ function createReelItem() {
         if (type === 2) questionStr = "Nghĩa: " + wordObj.translation;
         if (type === 3) questionStr = "Từ vựng: " + wordObj.word;
         if (type === 4) questionStr = "Từ đồng nghĩa: " + wordObj.synonyms.join(", ");
-        if (type === 5) questionStr = "Từ vựng: " + wordObj.word + " (Đồng Nghĩa)";
+        if (type === 5) questionStr = "Từ vựng: " + wordObj.word + " (Hãy chọn Đồng Nghĩa)";
 
         var optionsHtml = options.map(opt => {
             var optText = "";
@@ -451,6 +468,9 @@ function showCompletion() {
   _txt("#completion-copy", Object.keys(sessionRememberedWords).length + " remembered · " + Object.keys(sessionReviewWords).length + " to revisit.");
 }
 
+// BÀI TEST CHÍNH
+function normStr(s) { return (s||"").trim().toLowerCase().replace(/[.,!?;:()]/g,''); }
+
 function generateTestQuestions() {
   var ts = _el("#test-type-select"); if (ts) testMode = ts.value;
   var sIdx = parseInt(_getVal("#test-start-idx"))||1, eIdx = parseInt(_getVal("#test-end-idx"))||10;
@@ -487,6 +507,10 @@ function submitFullTest() {
   }
   _hide("#test-submit-btn"); _show("#test-result-summary"); _txt("#test-final-score", score); _txt("#test-final-total", testQuestions.length); window.scrollTo({top:0, behavior:'smooth'});
 }
+
+// ==============================================
+// GAME CROSSWORD & SUBMIT HÀM CUỐI CÙNG
+// ==============================================
 
 function generateCrossword() {
   var sIdx = parseInt(_getVal("#cw-start-idx"))||1, eIdx = parseInt(_getVal("#cw-end-idx"))||10, cType = _getVal("#cw-clue-type-select") || "meaning";
@@ -609,6 +633,7 @@ function highlightCurrentCwWord() {
   var el=_el("#cw-clue-"+cwCurrentWordId); if(el) el.classList.add("active");
 }
 
+// BỔ SUNG HÀM CÒN THIẾU
 function submitCrossword() {
   if(!confirm("Chốt đáp án và kiểm tra?")) return;
   var allC=true;
@@ -656,7 +681,7 @@ document.addEventListener("DOMContentLoaded", function() {
   var authBtn = _el("#auth-btn");
   if(authBtn) {
       authBtn.addEventListener("click", function() {
-          if(!auth) { alert("Firebase Auth chưa tải xong hoặc bị lỗi kết nối!"); return; }
+          if(!auth) { alert("Firebase Auth chưa kết nối thành công!"); return; }
           auth.signInWithPopup(authProvider).catch(function(error) { 
               alert("Lỗi đăng nhập: " + error.message); 
           });
