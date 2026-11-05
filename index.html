@@ -16,7 +16,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=40" />
+    <link rel="stylesheet" href="styles.css?v=50" />
   </head>
   <body>
     <div class="app-shell">
@@ -32,7 +32,6 @@
           <button class="nav-link" type="button" data-view="credit">Credit</button>
         </nav>
         <div class="topbar-tools">
-          <!-- NÚT ĐĂNG NHẬP -->
           <button id="auth-btn" class="login-btn">Đăng nhập</button>
           <div id="user-info" class="user-profile" style="display:none; cursor:pointer;" title="Bấm để đăng xuất">
               <img id="user-avatar" class="user-avatar" src="" alt="avatar">
@@ -139,32 +138,20 @@
           </section>
         </section>
 
-        <!-- KHOẢNG TRỜI REELS (DOOMSCROLLING) -->
-        <!-- KHOẢNG TRỜI REELS (DOOMSCROLLING) -->
+        <!-- KHOẢNG TRỜI REELS VỚI NHẠC LOFI CỰC CHILL -->
         <section class="view reels-view" id="reels-view" hidden>
-            <div class="reels-container" id="reels-container">
-                <!-- Nút bật nhạc chill lofi (Sẽ được JS xử lý) -->
-                <div class="music-toggle" id="music-toggle" title="Phát nhạc thư giãn">
-                    <span class="music-icon">🎵</span> Lofi Chill
-                </div>
-                
-                <!-- Audio element ẩn -->
-                <audio id="chill-audio" loop preload="none">
-                    <!-- Nguồn nhạc Lo-fi không bản quyền (bạn có thể thay đổi link MP3) -->
-                    <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
-                </audio>
-
-                <div id="reels-feed-content">
-                    <!-- Javascript sẽ đổ Reel dọc vào đây -->
-                </div>
+            <div class="music-toggle" id="music-toggle" title="Phát nhạc thư giãn">
+                <span class="music-icon">🎵</span> Lofi Chill
             </div>
-        </section>
+            <audio id="chill-audio" loop preload="none">
+                <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
+            </audio>
+
             <div class="reels-container" id="reels-container">
                 <!-- Javascript sẽ đổ Reel dọc vào đây -->
             </div>
         </section>
 
-        <!-- KHUNG BÌNH LUẬN TRƯỢT TỪ DƯỚI LÊN -->
         <div class="comment-sheet-overlay" id="comment-overlay"></div>
         <div class="comment-sheet" id="comment-sheet">
             <div class="comment-header">
@@ -288,6 +275,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="sets.js?v=999"></script>
-    <script src="app.js?v=40"></script>
+    <script src="app.js?v=50"></script>
   </body>
 </html>
