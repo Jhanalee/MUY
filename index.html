@@ -16,7 +16,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=50" />
+    
+    <!-- ÉP TRÌNH DUYỆT TẢI BẢN MỚI BẰNG ?v=60 -->
+    <link rel="stylesheet" href="styles.css?v=60" />
   </head>
   <body>
     <div class="app-shell">
@@ -138,18 +140,21 @@
           </section>
         </section>
 
-        <!-- KHOẢNG TRỜI REELS VỚI NHẠC LOFI CỰC CHILL -->
+        <!-- KHOẢNG TRỜI REELS VỚI NHẠC LOFI -->
         <section class="view reels-view" id="reels-view" hidden>
-            <div class="music-toggle" id="music-toggle" title="Phát nhạc thư giãn">
-                <span class="music-icon">🎵</span> Lofi Chill
-            </div>
-            <audio id="chill-audio" loop preload="none">
-                <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
-            </audio>
-
             <div class="reels-container" id="reels-container">
                 <!-- Javascript sẽ đổ Reel dọc vào đây -->
             </div>
+            
+            <!-- Nút bật nhạc chill lofi (Được đưa ra ngoài container để đứng yên) -->
+            <div class="music-toggle" id="music-toggle" title="Phát nhạc thư giãn">
+                <span class="music-icon">🎵</span> Lofi Chill
+            </div>
+            
+            <!-- Audio element ẩn -->
+            <audio id="chill-audio" loop preload="none">
+                <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
+            </audio>
         </section>
 
         <div class="comment-sheet-overlay" id="comment-overlay"></div>
@@ -275,6 +280,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="sets.js?v=999"></script>
-    <script src="app.js?v=50"></script>
+    
+    <!-- CẬP NHẬT APP.JS VỚI VERSION 60 -->
+    <script src="app.js?v=60"></script>
   </body>
 </html>
