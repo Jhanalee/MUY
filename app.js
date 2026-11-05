@@ -4,6 +4,8 @@ var db = null;
 try { if (typeof firebase !== "undefined") { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } } catch (e) {}
 
 var storageKey = "marginalia-sat-progress-v2", activeSetStorageKey = "marginalia-sat-active-set-v1", voiceSettingsStorageKey = "sat-vocab-voice-settings-v1", themeStorageKey = "sat-vocab-theme-v1";
+var reelsSrsKey = "sat-reels-srs-v1"; // Lưu timestamp cho Reels Spaced Repetition
+
 var allSets = (typeof sets !== "undefined" && Array.isArray(sets)) ? sets : [];
 var setsById = new Map(); allSets.forEach(function(set) { setsById.set(set.id, set); });
 var supportsSpeech = "speechSynthesis" in window;
@@ -14,6 +16,8 @@ var statusByWord = statusBySet[activeSetId] || (statusBySet[activeSetId] = {});
 var activeCategory = "all";
 var voiceSettings = loadVoiceSettings();
 var availableVoices = [];
+
+var reelsSrsData = JSON.parse(localStorage.getItem(reelsSrsKey)) || {};
 
 var studyQueue = [], currentCardObj = null, totalCardsInSession = 0, completedCardsInSession = 0, waitingInterval = null, currentOrderMode = "alphabetical", sessionReviewWords = {}, sessionRememberedWords = {}, cardsSeenInSession = {}; 
 var testQuestions = [], testMode = "meaning-word";
@@ -65,9 +69,10 @@ function changeSet(setId) {
 }
 
 function setView(view) {
-  var h=_el("#home-view"), s=_el("#study-view"), w=_el("#words-view"), t=_el("#test-view"), g=_el("#game-view"), c=_el("#credit-view");
+  var h=_el("#home-view"), s=_el("#study-view"), w=_el("#words-view"), t=_el("#test-view"), g=_el("#game-view"), c=_el("#credit-view"), r=_el("#reels-view");
   if(h) h.hidden = (view !== "home"); if(s) s.hidden = (view !== "study"); if(w) w.hidden = (view !== "words");
   if(t) t.hidden = (view !== "test"); if(g) g.hidden = (view !== "game"); if(c) c.hidden = (view !== "credit");
+  if(r) r.hidden = (view !== "reels");
   
   document.querySelectorAll(".nav-link").forEach(function(button) {
     var isActive = button.dataset.view === view;
@@ -78,12 +83,188 @@ function setView(view) {
   if (view === "words") renderWords();
   if (view === "test") updateTestRangeBounds();
   if (view === "game") updateCwRangeBounds();
+  if (view === "reels") initReels();
   
   var cs = _el("#card-scene");
   if (view === "study" && voiceSettings.onCard && cs && !cs.hidden) { var entry = currentWord(); if (entry) speakWord(entry.word); }
   window.scrollTo(0,0);
 }
 
+// ==========================================
+// TÍNH NĂNG REELS (DOOMSCROLLING MICRO-LEARNING)
+// ==========================================
+
+function saveReelsSrs() { localStorage.setItem(reelsSrsKey, JSON.stringify(reelsSrsData)); }
+
+function getNextReelWord() {
+    var now = Date.now();
+    var c = activeSet().cards;
+    if (c.length === 0) return null;
+    
+    // Tìm các từ đến hạn ôn tập
+    var dueWords = c.filter(function(w) { return reelsSrsData[w.word] && reelsSrsData[w.word] <= now; });
+    
+    // 50% cơ hội lôi từ cũ ra ôn, 50% cơ hội học từ mới
+    if (dueWords.length > 0 && Math.random() > 0.5) {
+        return dueWords[Math.floor(Math.random() * dueWords.length)];
+    }
+    
+    // Nếu không thì random 1 từ bất kỳ
+    return c[Math.floor(Math.random() * c.length)];
+}
+
+function createReelItem() {
+    var wordObj = getNextReelWord();
+    if (!wordObj) return;
+
+    var container = _el("#reels-container");
+    var reelDiv = document.createElement("div");
+    reelDiv.className = "reel-item";
+    
+    // Trộn ngẫu nhiên 5 dạng: 1=Flashcard, 2=Meaning->Word, 3=Word->Meaning, 4=Synonym->Word, 5=Word->Synonym
+    var type = Math.floor(Math.random() * 5) + 1;
+    var hasSynonym = wordObj.synonyms && wordObj.synonyms.length > 0;
+    
+    // Fallback nếu không có synonym
+    if (type === 4 && !hasSynonym) type = 2;
+    if (type === 5 && !hasSynonym) type = 3;
+
+    var contentBox = document.createElement("div");
+    contentBox.className = "reel-content-box";
+
+    // Khung SRS 4 nút
+    var srsPanelHtml = `
+        <div class="reel-srs-panel">
+            <div class="reel-srs-grid">
+                <button class="rs-btn rs-super-hard" data-delay="45000">SUPER HARD<span class="rs-delay">45 sec</span></button>
+                <button class="rs-btn rs-hard" data-delay="120000">HARD<span class="rs-delay">2 min</span></button>
+                <button class="rs-btn rs-easy" data-delay="300000">EASY<span class="rs-delay">5 min</span></button>
+                <button class="rs-btn rs-super-easy" data-delay="1200000">SUPER EASY<span class="rs-delay">20 min</span></button>
+            </div>
+        </div>
+    `;
+
+    if (type === 1) {
+        // DẠNG 1: FLASHCARD CHẠM LÀ HIỆN
+        var synStr = hasSynonym ? "Đồng nghĩa: " + wordObj.synonyms.join(", ") : "";
+        var exStr = highlightWordHtml(wordObj.example || "", wordObj.word);
+        
+        contentBox.innerHTML = `
+            <div class="reel-fc">
+                <div class="reel-fc-pos">${wordObj.pos.toUpperCase()}</div>
+                <div class="reel-fc-word">${wordObj.word}</div>
+                <div class="reel-fc-meaning">${wordObj.translation}</div>
+                ${hasSynonym ? `<div class="reel-fc-example" style="border-left-color:#ff8fa3">${synStr}</div>` : ''}
+                ${exStr ? `<div class="reel-fc-example">Ví dụ: ${exStr}</div>` : ''}
+                <div class="tap-hint-reel">Chạm để xem nghĩa</div>
+            </div>
+        ` + srsPanelHtml;
+        
+        var fcBox = contentBox.querySelector('.reel-fc');
+        var srsPanel = contentBox.querySelector('.reel-srs-panel');
+        
+        fcBox.addEventListener('click', function() {
+            fcBox.classList.add('revealed');
+            srsPanel.classList.add('show');
+            speakWord(wordObj.word);
+        });
+
+    } else {
+        // DẠNG 2 ĐẾN 5: TRẮC NGHIỆM
+        var allWords = activeSet().cards;
+        var options = [wordObj];
+        // Lấy 3 đáp án nhiễu
+        while(options.length < 4 && options.length < allWords.length) {
+            var rand = allWords[Math.floor(Math.random() * allWords.length)];
+            if (!options.find(o => o.word === rand.word)) options.push(rand);
+        }
+        options.sort(() => 0.5 - Math.random());
+
+        var questionStr = "";
+        if (type === 2) questionStr = "Nghĩa: " + wordObj.translation;
+        if (type === 3) questionStr = "Từ vựng: " + wordObj.word;
+        if (type === 4) questionStr = "Từ đồng nghĩa: " + wordObj.synonyms.join(", ");
+        if (type === 5) questionStr = "Từ vựng: " + wordObj.word + " (Hãy chọn Đồng Nghĩa)";
+
+        var optionsHtml = options.map(opt => {
+            var optText = "";
+            if (type === 2 || type === 4) optText = opt.word;
+            if (type === 3) optText = opt.translation;
+            if (type === 5) optText = (opt.synonyms && opt.synonyms.length > 0) ? opt.synonyms.join(", ") : opt.translation; // Fallback
+            
+            var isCorrect = (opt.word === wordObj.word) ? 'true' : 'false';
+            return `<div class="reel-mcq-opt" data-correct="${isCorrect}">${optText}</div>`;
+        }).join("");
+
+        contentBox.innerHTML = `
+            <div class="reel-mcq-question">${questionStr}</div>
+            <div class="reel-mcq-options">${optionsHtml}</div>
+        ` + srsPanelHtml;
+        
+        var srsPanel = contentBox.querySelector('.reel-srs-panel');
+        var opts = contentBox.querySelectorAll('.reel-mcq-opt');
+        
+        opts.forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Khóa không cho bấm nữa
+                opts.forEach(b => b.style.pointerEvents = 'none');
+                
+                if (this.dataset.correct === 'true') {
+                    this.classList.add('correct');
+                } else {
+                    this.classList.add('incorrect');
+                    // Hiện đáp án đúng
+                    contentBox.querySelector('.reel-mcq-opt[data-correct="true"]').classList.add('correct');
+                }
+                
+                // Hiện bảng SRS
+                srsPanel.classList.add('show');
+                speakWord(wordObj.word);
+            });
+        });
+    }
+
+    // Gắn sự kiện cho 4 nút SRS
+    var srsBtns = contentBox.querySelectorAll('.rs-btn');
+    srsBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            var delayMs = parseInt(this.dataset.delay);
+            reelsSrsData[wordObj.word] = Date.now() + delayMs;
+            saveReelsSrs();
+            
+            // Tự động cuộn mượt xuống bài tiếp theo
+            var nextReel = reelDiv.nextElementSibling;
+            if (nextReel) {
+                container.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+            }
+        });
+    });
+
+    reelDiv.appendChild(contentBox);
+    container.appendChild(reelDiv);
+}
+
+function initReels() {
+    var container = _el("#reels-container");
+    if (!container) return;
+    container.innerHTML = "";
+    // Nạp sẵn 3 Reel đầu tiên
+    createReelItem();
+    createReelItem();
+    createReelItem();
+    
+    // Infinite Scroll
+    container.addEventListener('scroll', function() {
+        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 100) {
+            createReelItem(); // Chạm đáy thì nạp thêm
+        }
+    });
+}
+
+
+// ==========================================
+// CÁC HÀM CŨ (HOME, STUDY, TEST, GAME)
+// ==========================================
 function renderHome() {
   var g=_el("#home-set-grid"); if(!g) return; g.innerHTML="";
   allSets.forEach(function(set, i){
@@ -137,74 +318,6 @@ function renderWords() {
   });
 }
 
-function gradeCard(status) {
-  if (!currentCardObj) return; cardsSeenInSession[currentCardObj.word] = true;
-  if (status === "review") {
-    sessionReviewWords[currentCardObj.word] = true; delete sessionRememberedWords[currentCardObj.word];
-    statusByWord[currentCardObj.word] = "review"; currentCardObj.step = 0; currentCardObj.availableAt = Date.now()+15000; studyQueue.push(currentCardObj);
-  } else if (status === "remembered") {
-    if (currentCardObj.step === 0) { currentCardObj.step = 1; currentCardObj.availableAt = Date.now()+120000; studyQueue.push(currentCardObj); } 
-    else { sessionRememberedWords[currentCardObj.word] = true; delete sessionReviewWords[currentCardObj.word]; statusByWord[currentCardObj.word] = "remembered"; completedCardsInSession++; }
-  }
-  currentCardObj = null; saveProgress(); renderNextCard();
-}
-
-function renderNextCard() {
-  if (waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
-  if (studyQueue.length === 0 && !currentCardObj) { showCompletion(); return; }
-  var now = Date.now(); var avail = [];
-  for (var i=0; i<studyQueue.length; i++) if (studyQueue[i].availableAt <= now) avail.push({c:studyQueue[i], idx:i});
-  var nIdx = -1;
-  if (avail.length > 0) { var revs = avail.filter(function(x){ return x.c.availableAt > 0; }); if(revs.length>0){ revs.sort(function(a,b){return a.c.availableAt - b.c.availableAt;}); nIdx=revs[0].idx; } else { nIdx = avail[0].idx; } }
-
-  if (nIdx !== -1) {
-    _hide("#review-waiting"); _show("#card-scene"); _show("#answer-area");
-    currentCardObj = studyQueue.splice(nIdx, 1)[0]; renderCard();
-  } else {
-    currentCardObj = null; _hide("#card-scene"); _hide("#answer-area"); _show("#review-waiting");
-    var mT = studyQueue[0].availableAt;
-    for (var j=1; j<studyQueue.length; j++) if(studyQueue[j].availableAt<mT) mT=studyQueue[j].availableAt;
-    updateCountdown(mT); waitingInterval = setInterval(function(){ Date.now()>=mT ? renderNextCard() : updateCountdown(mT); }, 1000);
-  }
-}
-
-function updateCountdown(t) { var d = Math.max(0, Math.ceil((t - Date.now())/1000)); _txt("#review-countdown", formatCount(Math.floor(d/60)) + ":" + formatCount(d%60)); }
-
-function renderCard() {
-  var e = currentWord(); if (!e) return;
-  var dIdx = Object.keys(cardsSeenInSession).length; if(!cardsSeenInSession[e.word]) dIdx++;
-  if(dIdx>totalCardsInSession) dIdx=totalCardsInSession; if(dIdx===0) dIdx=1;
-  
-  _html("#card-index", formatCount(dIdx)+" <span>/ "+formatCount(totalCardsInSession)+"</span>");
-  _txt("#front-pos", (e.pos||"word").toUpperCase()); _txt("#front-word", e.word); _txt("#front-phonetic", e.phonetic||"");
-  _txt("#back-word", e.word); _txt("#back-translation", e.translation||"");
-  document.querySelectorAll(".card-set-name").forEach(function(l){ l.textContent = activeSet().name.toUpperCase(); });
-  
-  var bs = _el("#back-synonyms"); if(bs){ bs.innerHTML=""; var syns = Array.isArray(e.synonyms) ? e.synonyms : []; syns.forEach(function(s,i){ bs.appendChild(document.createTextNode(s)); if(i<syns.length-1){var sp=document.createElement("span"); sp.textContent=" · "; bs.appendChild(sp);} }); }
-  var be = _el("#back-example"); if(be){ be.innerHTML = highlightWordHtml(e.example||"", e.word); }
-  
-  var pf = _el("#progress-fill"); if(pf) pf.style.width = ((completedCardsInSession/(totalCardsInSession||1))*100)+"%";
-  setCardFace(false); var sv = _el("#study-view"); if (voiceSettings.onCard && sv && !sv.hidden) speakWord(e.word);
-}
-
-function showCompletion() {
-  var fc = _el("#flashcard"); if (fc) fc.classList.remove("is-flipped");
-  _hide("#card-scene"); _hide("#answer-area"); _hide("#review-waiting"); _show("#completion-panel");
-  var pf = _el("#progress-fill"); if(pf) pf.style.width = "100%";
-  _txt("#completion-copy", Object.keys(sessionRememberedWords).length + " remembered · " + Object.keys(sessionReviewWords).length + " to revisit.");
-}
-
-function startStudy() {
-  sessionReviewWords={}; sessionRememberedWords={}; cardsSeenInSession={}; completedCardsInSession=0;
-  var c = activeSet().cards; totalCardsInSession = c.length; var iw = c.map(function(x){ return x.word; });
-  if (currentOrderMode === "random") { for(var i=iw.length-1; i>0; i--){ var j=Math.floor(Math.random()*(i+1)); var t=iw[i]; iw[i]=iw[j]; iw[j]=t; } } else { iw.sort(function(a,b){ return a.localeCompare(b); }); }
-  studyQueue = iw.map(function(w){ return {word:w, availableAt:0, step:0}; });
-  _hide("#completion-panel"); _hide("#review-waiting"); renderNextCard();
-}
-
-function updateTestRangeBounds() { var max = activeSet().cards.length||1; var e = _el("#test-end-idx"); if(e){ e.max=max; if(!e.value || parseInt(e.value)>max) e.value=max; } }
-function normStr(s) { return (s||"").trim().toLowerCase().replace(/[.,!?;:()]/g,''); }
-
 function generateTestQuestions() {
   var ts = _el("#test-type-select"); if (ts) testMode = ts.value;
   var sIdx = parseInt(_getVal("#test-start-idx"))||1, eIdx = parseInt(_getVal("#test-end-idx"))||10;
@@ -241,9 +354,6 @@ function submitFullTest() {
   }
   _hide("#test-submit-btn"); _show("#test-result-summary"); _txt("#test-final-score", score); _txt("#test-final-total", testQuestions.length); window.scrollTo({top:0, behavior:'smooth'});
 }
-
-function updateCwRangeBounds() { var max = activeSet().cards.length||1; var e = _el("#cw-end-idx"); if(e){ e.max=max; if(!e.value || parseInt(e.value)>max) e.value=max; } }
-function cleanWord(w) { return w.replace(/[^a-zA-Z]/g,"").toUpperCase(); }
 
 function generateCrossword() {
   var sIdx = parseInt(_getVal("#cw-start-idx"))||1, eIdx = parseInt(_getVal("#cw-end-idx"))||10, cType = _getVal("#cw-clue-type-select") || "meaning";
@@ -303,83 +413,6 @@ function generateCrossword() {
   drawCrosswordGrid(); _hide("#cw-setup-panel"); _show("#cw-run-panel"); _show("#cw-submit-btn"); _hide("#cw-result-summary");
 }
 
-function drawCrosswordGrid() {
-  if(cwWordsPlaced.length===0) return;
-  var mX=999, mx=-999, mY=999, my=-999;
-  for(var k in cwGridData){ var p=k.split(','); var x=parseInt(p[0]), y=parseInt(p[1]); if(x<mX)mX=x; if(x>mx)mx=x; if(y<mY)mY=y; if(y>my)my=y; }
-  var cont = _el("#cw-grid-container"); var tb = document.createElement("table"); tb.className="cw-board";
-  
-  for(var r=mY; r<=my; r++){
-    var tr=document.createElement("tr");
-    for(var c=mX; c<=mx; c++){
-      var td=document.createElement("td"); td.className="cw-cell"; var cd=cwGridData[c+','+r];
-      if(!cd) td.classList.add("empty");
-      else {
-        var isS=false, sN=0;
-        for(var i=0; i<cwWordsPlaced.length; i++) if(cwWordsPlaced[i].x===c && cwWordsPlaced[i].y===r){ isS=true; sN=cwWordsPlaced[i].num; break; }
-        if(isS){ var sp=document.createElement("span"); sp.className="cw-number"; sp.textContent=sN; td.appendChild(sp); }
-        
-        var inp=document.createElement("input"); inp.type="text"; inp.className="cw-input"; inp.maxLength=1;
-        inp.setAttribute("autocomplete", "off"); inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "characters"); inp.setAttribute("spellcheck", "false");
-        inp.dataset.x=c; inp.dataset.y=r; inp.dataset.wids=cd.wordIds.join(",");
-        
-        inp.addEventListener("click", function(e){
-          var wids=e.target.dataset.wids.split(",");
-          if(wids.length>1 && document.activeElement===e.target){ cwCurrentWordId=(cwCurrentWordId==parseInt(wids[0]))?parseInt(wids[1]):parseInt(wids[0]); cwCurrentDir=getWordById(cwCurrentWordId).dir; highlightCurrentCwWord(); }
-        });
-        inp.addEventListener("focus", function(e){
-          var wids=e.target.dataset.wids.split(",");
-          if(cwCurrentWordId===null || wids.indexOf(String(cwCurrentWordId))===-1){ cwCurrentWordId=parseInt(wids[0]); cwCurrentDir=getWordById(cwCurrentWordId).dir; }
-          highlightCurrentCwWord(); setTimeout(function(){e.target.select();}, 10);
-        });
-        inp.addEventListener("keydown", function(e){
-          var cx=parseInt(e.target.dataset.x), cy=parseInt(e.target.dataset.y);
-          if(e.key==="Backspace"){ if(e.target.value===""){ e.preventDefault(); focusCwCell(cx-(cwCurrentDir==='H'?1:0), cy-(cwCurrentDir==='V'?1:0)); } else { e.target.value=""; e.preventDefault(); } } 
-          else if(e.key==="ArrowRight"){ e.preventDefault(); focusCwCell(cx+1,cy); } else if(e.key==="ArrowLeft"){ e.preventDefault(); focusCwCell(cx-1,cy); } else if(e.key==="ArrowDown"){ e.preventDefault(); focusCwCell(cx,cy+1); } else if(e.key==="ArrowUp"){ e.preventDefault(); focusCwCell(cx,cy-1); }
-        });
-        inp.addEventListener("input", function(e){
-          var v=e.target.value.replace(/[^a-zA-Z]/g,"").toUpperCase();
-          if(v.length>0){ e.target.value=v.charAt(v.length-1); focusCwCell(parseInt(e.target.dataset.x)+(cwCurrentDir==='H'?1:0), parseInt(e.target.dataset.y)+(cwCurrentDir==='V'?1:0)); } else e.target.value="";
-        });
-        td.appendChild(inp);
-      } tr.appendChild(td);
-    } tb.appendChild(tr);
-  }
-  if(cont) { cont.innerHTML=""; cont.appendChild(tb); }
-
-  var aL = _el("#cw-across-list"), dL = _el("#cw-down-list");
-  if(aL) aL.innerHTML=""; if(dL) dL.innerHTML="";
-  for(var w=0; w<cwWordsPlaced.length; w++){
-    var wp=cwWordsPlaced[w], li=document.createElement("li"); li.className="cw-clue-item"; li.id="cw-clue-"+wp.id;
-    li.innerHTML="<span class='cw-clue-num'>"+wp.num+".</span> "+wp.clue;
-    if(wp.dir==='H' && aL) aL.appendChild(li); else if(dL) dL.appendChild(li);
-  }
-}
-
-function getWordById(id) { for(var i=0; i<cwWordsPlaced.length; i++) if(cwWordsPlaced[i].id===id) return cwWordsPlaced[i]; return null; }
-function focusCwCell(x,y) { var inp=_el(".cw-input[data-x='"+x+"'][data-y='"+y+"']"); if(inp) inp.focus(); }
-function highlightCurrentCwWord() {
-  document.querySelectorAll(".cw-cell").forEach(function(c){c.classList.remove("active-word");});
-  document.querySelectorAll(".cw-clue-item").forEach(function(c){c.classList.remove("active");});
-  if(cwCurrentWordId===null) return;
-  document.querySelectorAll(".cw-input").forEach(function(inp){ if(inp.dataset.wids.split(",").indexOf(String(cwCurrentWordId))!==-1) inp.parentElement.classList.add("active-word"); });
-  var el=_el("#cw-clue-"+cwCurrentWordId); if(el) el.classList.add("active");
-}
-
-function submitCrossword() {
-  if(!confirm("Chốt đáp án và kiểm tra?")) return;
-  var allC=true;
-  document.querySelectorAll(".cw-input").forEach(function(inp){
-    var ex=cwGridData[inp.dataset.x+','+inp.dataset.y].char; inp.disabled=true;
-    if(inp.value.toUpperCase()===ex) inp.parentElement.classList.add("correct");
-    else { inp.parentElement.classList.add("incorrect"); inp.value=ex; allC=false; }
-  });
-  _hide("#cw-submit-btn"); _show("#cw-result-summary");
-  var t=_el("#cw-result-title");
-  if(t){ t.textContent = allC ? "Tuyệt Vời! Ô chữ đã giải mã 100%!" : "Chưa hoàn hảo. Xem lại ô đỏ!"; t.style.color = allC ? "var(--lime)" : "var(--rose)"; }
-  window.scrollTo(0, document.body.scrollHeight);
-}
-
 function parseRawVocabulary(text) {
   var lines=text.trim().split("\n"), cards=[];
   lines.forEach(function(l){
@@ -403,191 +436,124 @@ function parseRawVocabulary(text) {
   }); return cards;
 }
 
-// ==========================================
-// KHỞI TẠO VÀ GẮN SỰ KIỆN TOÀN CỤC
-// ==========================================
-var bsf = _el("#btn-save-firebase");
-if (bsf) {
-    bsf.addEventListener("click", function(){
-        if (!db) { alert("Chưa kết nối Firebase!"); return; }
-        
-        var ti = _el("#deck-title");
-        var ra = _el("#import-input");
-        
-        if (!ti || !ti.value.trim() || !ra || !ra.value.trim()) { alert("Nhập đủ thông tin!"); return; }
-        
-        var c = parseRawVocabulary(ra.value); 
-        if (c.length === 0) { alert("Sai định dạng!"); return; }
-        
-        bsf.innerText = "Đang lưu..."; 
-        bsf.disabled = true;
-        
-        db.collection("decks").add({
-            name: ti.value.trim(), 
-            cards: c, 
-            createdAt: new Date().toISOString()
-        }).then(function(){
-            alert("Tạo bộ từ thành công!"); 
-            ti.value = ""; 
-            ra.value = ""; 
-            _hide("#custom-set-section");
-            bsf.innerText = "Lưu Lên Server"; 
-            bsf.disabled = false; 
-            syncOnlineDecks();
-        }).catch(function(){
-            alert("Lỗi lưu!"); 
-            bsf.innerText = "Lưu Lên Server"; 
-            bsf.disabled = false;
-        });
-    });
-}
+// KHỞI CHẠY LẦN ĐẦU & EVENT BINDING TỔNG HỢP CŨ
+document.addEventListener("DOMContentLoaded", function() {
 
-function syncOnlineDecks() {
-    if (!db) return;
-    db.collection("decks").orderBy("createdAt","desc").get().then(function(snap){
-        var a = false; 
-        snap.forEach(function(doc){
-            var d = doc.data();
-            var id = "firebase-" + doc.id;
-            if(!setsById.has(id)){ 
-                allSets.push({id: id, name: d.name, cards: d.cards}); 
-                setsById.set(id, allSets[allSets.length-1]); 
-                a = true; 
-            }
-        });
-        if(a){ 
-            updateSelectDropdowns(); 
-            if(setsById.has(activeSetId)) changeSet(activeSetId); 
-            else if(allSets.length > 0) changeSet(allSets[0].id); 
-        }
-    }).catch(function(err){ console.warn("Lỗi đồng bộ:", err); });
-}
+  var bsf = _el("#btn-save-firebase");
+  if (bsf) {
+      bsf.addEventListener("click", function(){
+          if (!db) { alert("Chưa kết nối Firebase!"); return; }
+          var ti = _el("#deck-title");
+          var ra = _el("#import-input");
+          if (!ti || !ti.value.trim() || !ra || !ra.value.trim()) { alert("Nhập đủ thông tin!"); return; }
+          var c = parseRawVocabulary(ra.value); 
+          if (c.length === 0) { alert("Sai định dạng!"); return; }
+          bsf.innerText = "Đang lưu..."; bsf.disabled = true;
+          db.collection("decks").add({
+              name: ti.value.trim(), cards: c, createdAt: new Date().toISOString()
+          }).then(function(){
+              alert("Tạo bộ từ thành công!"); ti.value = ""; ra.value = ""; _hide("#custom-set-section");
+              bsf.innerText = "Lưu Lên Server"; bsf.disabled = false; syncOnlineDecks();
+          }).catch(function(){ alert("Lỗi lưu!"); bsf.innerText = "Lưu Lên Server"; bsf.disabled = false; });
+      });
+  }
 
-_bind("#review-button", "click", function(){ gradeCard("review"); });
-_bind("#remember-button", "click", function(){ gradeCard("remembered"); });
-_bind("#restart-button", "click", startStudy);
-_bind("#preview-start", "click", function(){ setView("study"); });
+  function syncOnlineDecks() {
+      if (!db) return;
+      db.collection("decks").orderBy("createdAt","desc").get().then(function(snap){
+          var a = false; 
+          snap.forEach(function(doc){
+              var d = doc.data(); var id = "firebase-" + doc.id;
+              if(!setsById.has(id)){ allSets.push({id: id, name: d.name, cards: d.cards}); setsById.set(id, allSets[allSets.length-1]); a = true; }
+          });
+          if(a){ updateSelectDropdowns(); if(setsById.has(activeSetId)) changeSet(activeSetId); else if(allSets.length > 0) changeSet(allSets[0].id); }
+      }).catch(function(err){ console.warn("Lỗi đồng bộ:", err); });
+  }
 
-document.querySelectorAll(".study-order-button").forEach(function(b){ 
-    b.addEventListener("click",function(){ 
-        document.querySelectorAll(".study-order-button").forEach(function(x){
-            x.classList.remove("is-active");
-            x.setAttribute("aria-pressed","false");
-        }); 
-        b.classList.add("is-active"); 
-        b.setAttribute("aria-pressed","true"); 
-        currentOrderMode = b.dataset.studyOrder; 
-        var sv = _el("#study-view"); 
-        if(sv && !sv.hidden) startStudy(); 
-    }); 
+  _bind("#review-button", "click", function(){ gradeCard("review"); });
+  _bind("#remember-button", "click", function(){ gradeCard("remembered"); });
+  _bind("#restart-button", "click", startStudy);
+  _bind("#preview-start", "click", function(){ setView("study"); });
+
+  document.querySelectorAll(".study-order-button").forEach(function(b){ 
+      b.addEventListener("click",function(){ 
+          document.querySelectorAll(".study-order-button").forEach(function(x){ x.classList.remove("is-active"); x.setAttribute("aria-pressed","false"); }); 
+          b.classList.add("is-active"); b.setAttribute("aria-pressed","true"); currentOrderMode = b.dataset.studyOrder; 
+          var sv = _el("#study-view"); if(sv && !sv.hidden) startStudy(); 
+      }); 
+  });
+
+  _bind("#finish-early", "click", function(){ if(waitingInterval){ clearInterval(waitingInterval); waitingInterval = null; } showCompletion(); });
+  _bind("#toggle-add-set-btn", "click", function(){ var c = _el("#custom-set-section"); if(c) c.hidden = !c.hidden; });
+  _bind("#btn-cancel-create", "click", function(){ _hide("#custom-set-section"); });
+
+  _bind("#test-start-btn", "click", generateTestQuestions);
+  _bind("#test-submit-btn", "click", submitFullTest);
+  _bind("#test-abort-btn", "click", function(){ if(confirm("Hủy bài?")){ _hide("#test-run-panel"); _show("#test-setup-panel"); } });
+  _bind("#test-retry-btn", "click", function(){ _hide("#test-result-summary"); _hide("#test-run-panel"); _show("#test-setup-panel"); });
+
+  _bind("#cw-start-btn", "click", generateCrossword);
+  _bind("#cw-submit-btn", "click", submitCrossword);
+  _bind("#cw-abort-btn", "click", function(){ if(confirm("Thoát?")){ _hide("#cw-run-panel"); _show("#cw-setup-panel"); } });
+  _bind("#cw-retry-btn", "click", function(){ _hide("#cw-result-summary"); _hide("#cw-run-panel"); _show("#cw-setup-panel"); });
+
+  _bind("#back-to-study", "click", function(){ setView("study"); });
+  _bind("#theme-select", "change", function(e){ applyTheme(e.target.value); });
+
+  document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-on-flip").forEach(function(c){
+      c.addEventListener("change", function(){
+          var vg = _el("#voice-gender"), vs = _el("#voice-speed"), vc = _el("#voice-on-card"), vf = _el("#voice-on-flip");
+          voiceSettings = { gender: vg ? vg.value : "female", speed: vs ? vs.value : "normal", onCard: vc ? vc.checked : true, onFlip: vf ? vf.checked : true };
+          saveVoiceSettings(); updateVoiceNote();
+      });
+  });
+
+  _bind("#settings-menu", "click", function(e){ e.stopPropagation(); });
+  document.addEventListener("click", function(){ var m = _el("#settings-menu"); if(m) m.open = false; });
+  document.addEventListener("keydown", function(e){ if(e.key === "Escape"){ var m = _el("#settings-menu"); if(m) m.open = false;} });
+  _bind(".wordmark", "click", function(e){ e.preventDefault(); setView("home"); });
+
+  var fc = _el("#flashcard");
+  if (fc) {
+      fc.addEventListener("click", function(e) {
+          if (e.target.closest("button") || e.target.tagName.toLowerCase() === "button") return;
+          var sel = window.getSelection();
+          if (sel && sel.toString().trim().length > 0) return;
+          var isCurrentlyFlipped = fc.classList.contains("is-flipped");
+          setCardFace(!isCurrentlyFlipped);
+      });
+  }
+
+  document.querySelectorAll(".set-select").forEach(function(s){ s.addEventListener("change", function(){ changeSet(s.value); }); });
+  document.querySelectorAll(".nav-link").forEach(function(b){ b.addEventListener("click", function(){ setView(b.dataset.view); }); });
+  document.querySelectorAll(".list-tab").forEach(function(b){ 
+      b.addEventListener("click", function(){
+          activeCategory = b.dataset.category; 
+          document.querySelectorAll(".list-tab").forEach(function(t){ t.classList.toggle("is-active", t === b); t.setAttribute("aria-selected", String(t === b)); }); 
+          renderWords();
+      }); 
+  });
+
+  _bind("#reset-progress", "click", function(){ 
+      if(confirm("Xóa toàn bộ tiến độ học tập trên máy này?")){ 
+          statusByWord = {}; statusBySet = {}; saveProgress(); 
+          alert("Đã reset."); window.location.reload(); 
+      }
+  });
+
+  document.addEventListener("keydown", function(e){
+      if(e.target instanceof HTMLElement && ["BUTTON","A","INPUT","TEXTAREA","SELECT"].indexOf(e.target.tagName) !== -1) return;
+      var sv = _el("#study-view"); var cs = _el("#card-scene"); var ffc = _el("#flashcard");
+      if(e.target === ffc || (sv && sv.hidden) || (cs && cs.hidden)) return;
+      if(e.key === " "){ e.preventDefault(); if(ffc) setCardFace(!ffc.classList.contains("is-flipped")); }
+      if(e.key === "ArrowLeft") gradeCard("review");
+      if(e.key === "ArrowRight") gradeCard("remembered");
+  });
+
+  applyTheme(loadTheme());
+  updateSelectDropdowns();
+  startStudy();
+  renderWords();
+  renderHome();
+  syncOnlineDecks();
 });
-
-_bind("#finish-early", "click", function(){ 
-    if(waitingInterval){ clearInterval(waitingInterval); waitingInterval = null; } 
-    showCompletion(); 
-});
-_bind("#toggle-add-set-btn", "click", function(){ 
-    var c = _el("#custom-set-section"); 
-    if(c) c.hidden = !c.hidden; 
-});
-_bind("#btn-cancel-create", "click", function(){ _hide("#custom-set-section"); });
-
-_bind("#test-start-btn", "click", generateTestQuestions);
-_bind("#test-submit-btn", "click", submitFullTest);
-_bind("#test-abort-btn", "click", function(){ if(confirm("Hủy bài?")){ _hide("#test-run-panel"); _show("#test-setup-panel"); } });
-_bind("#test-retry-btn", "click", function(){ _hide("#test-result-summary"); _hide("#test-run-panel"); _show("#test-setup-panel"); });
-
-_bind("#cw-start-btn", "click", generateCrossword);
-_bind("#cw-submit-btn", "click", submitCrossword);
-_bind("#cw-abort-btn", "click", function(){ if(confirm("Thoát?")){ _hide("#cw-run-panel"); _show("#cw-setup-panel"); } });
-_bind("#cw-retry-btn", "click", function(){ _hide("#cw-result-summary"); _hide("#cw-run-panel"); _show("#cw-setup-panel"); });
-
-_bind("#back-to-study", "click", function(){ setView("study"); });
-_bind("#theme-select", "change", function(e){ applyTheme(e.target.value); });
-
-document.querySelectorAll("#voice-gender, #voice-speed, #voice-on-card, #voice-on-flip").forEach(function(c){
-    c.addEventListener("change", function(){
-        var vg = _el("#voice-gender"), vs = _el("#voice-speed"), vc = _el("#voice-on-card"), vf = _el("#voice-on-flip");
-        voiceSettings = {
-            gender: vg ? vg.value : "female", 
-            speed: vs ? vs.value : "normal", 
-            onCard: vc ? vc.checked : true, 
-            onFlip: vf ? vf.checked : true
-        };
-        saveVoiceSettings(); 
-        updateVoiceNote();
-    });
-});
-
-_bind("#settings-menu", "click", function(e){ e.stopPropagation(); });
-document.addEventListener("click", function(){ var m = _el("#settings-menu"); if(m) m.open = false; });
-document.addEventListener("keydown", function(e){ if(e.key === "Escape"){ var m = _el("#settings-menu"); if(m) m.open = false;} });
-_bind(".wordmark", "click", function(e){ e.preventDefault(); setView("home"); });
-
-// FIX LỖI THẺ KHÔNG LẬT BẰNG JS THUẦN CHẮC CHẮN 100%
-var fc = _el("#flashcard");
-if (fc) {
-    fc.addEventListener("click", function(e) {
-        if (e.target.closest("button") || e.target.tagName.toLowerCase() === "button") return;
-        
-        var sel = window.getSelection();
-        if (sel && sel.toString().trim().length > 0) return;
-        
-        var isCurrentlyFlipped = fc.classList.contains("is-flipped");
-        setCardFace(!isCurrentlyFlipped);
-    });
-}
-
-document.querySelectorAll(".set-select").forEach(function(s){ 
-    s.addEventListener("change", function(){ changeSet(s.value); }); 
-});
-
-document.querySelectorAll(".nav-link").forEach(function(b){ 
-    b.addEventListener("click", function(){ setView(b.dataset.view); }); 
-});
-
-document.querySelectorAll(".list-tab").forEach(function(b){ 
-    b.addEventListener("click", function(){
-        activeCategory = b.dataset.category; 
-        document.querySelectorAll(".list-tab").forEach(function(t){
-            t.classList.toggle("is-active", t === b); 
-            t.setAttribute("aria-selected", String(t === b));
-        }); 
-        renderWords();
-    }); 
-});
-
-_bind("#reset-progress", "click", function(){ 
-    if(confirm("Xóa toàn bộ tiến độ học tập trên máy này?")){ 
-        statusByWord = {}; 
-        statusBySet = {}; 
-        saveProgress(); 
-        alert("Đã reset."); 
-        window.location.reload(); 
-    }
-});
-
-document.addEventListener("keydown", function(e){
-    if(e.target instanceof HTMLElement && ["BUTTON","A","INPUT","TEXTAREA","SELECT"].indexOf(e.target.tagName) !== -1) return;
-    
-    var sv = _el("#study-view");
-    var cs = _el("#card-scene");
-    var ffc = _el("#flashcard");
-    
-    if(e.target === ffc || (sv && sv.hidden) || (cs && cs.hidden)) return;
-    
-    if(e.key === " "){
-        e.preventDefault(); 
-        if(ffc) setCardFace(!ffc.classList.contains("is-flipped"));
-    }
-    if(e.key === "ArrowLeft") gradeCard("review");
-    if(e.key === "ArrowRight") gradeCard("remembered");
-});
-
-// Chạy code ngay
-applyTheme(loadTheme());
-updateSelectDropdowns();
-startStudy();
-renderWords();
-renderHome();
-syncOnlineDecks();
