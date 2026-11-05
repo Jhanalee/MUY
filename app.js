@@ -46,6 +46,52 @@ function _val(s, v) { var e = _el(s); if(e) e.value = v; }
 function _getVal(s) { var e = _el(s); return e ? e.value : ""; }
 function _bind(s, ev, cb) { var e = _el(s); if(e) e.addEventListener(ev, cb); }
 
+// ==============================================
+// HÀM GLOBAL (MỞ ĐÓNG COMMENT TRÁNH LỖI SCOPE)
+// ==============================================
+var currentReelCommentId = null;
+
+function openCommentSheet(reelId) {
+    currentReelCommentId = reelId;
+    _el("#comment-overlay").classList.add("show");
+    _el("#comment-sheet").classList.add("show");
+    _el("#comment-list").innerHTML = "<p style='color:var(--muted);text-align:center;'>Đang tải bình luận...</p>";
+    _el("#comment-input").value = "";
+    
+    // Tạo data giả định lập tức
+    setTimeout(function() {
+        _el("#comment-list").innerHTML = `
+            <div class="comment-item">
+                <div class="comment-author"><img src="https://ui-avatars.com/api/?name=SAT+Master&background=d5e88b&color=000"> SAT Master</div>
+                <div class="comment-text">Từ này hay thi trong phần Reading lắm nè mọi người! </div>
+            </div>
+        `;
+        _el("#comment-count").textContent = "1";
+    }, 400);
+}
+
+function closeCommentSheet() {
+    _el("#comment-overlay").classList.remove("show");
+    _el("#comment-sheet").classList.remove("show");
+}
+
+function sendNewComment() {
+    if (!currentUser) { alert("Vui lòng đăng nhập Google ở góc phải phía trên để bình luận!"); return; }
+    var txt = _el("#comment-input").value.trim();
+    if (!txt) return;
+    
+    var newHtml = `
+        <div class="comment-item">
+            <div class="comment-author"><img src="${currentUser.photoURL}"> ${currentUser.displayName}</div>
+            <div class="comment-text">${txt}</div>
+        </div>
+    `;
+    _el("#comment-list").insertAdjacentHTML("beforeend", newHtml);
+    _el("#comment-input").value = "";
+    _el("#comment-count").textContent = parseInt(_el("#comment-count").textContent) + 1;
+}
+
+
 function activeSet() { return setsById.get(activeSetId) || allSets[0] || { id: "default", name: "Empty", cards: [] }; }
 function loadActiveSet() { try { return setsById.has(localStorage.getItem(activeSetStorageKey)) ? localStorage.getItem(activeSetStorageKey) : (allSets[0] ? allSets[0].id : "essentials"); } catch (e) { return allSets[0] ? allSets[0].id : "essentials"; } }
 function loadVoiceSettings() { var d = { gender: "female", speed: "normal", onCard: true, onFlip: true }; try { var s = JSON.parse(localStorage.getItem(voiceSettingsStorageKey)); if (!s) return d; return { gender: s.gender||d.gender, speed: s.speed||d.speed, onCard: s.onCard!==false, onFlip: s.onFlip!==false }; } catch (e) { return d; } }
@@ -106,7 +152,7 @@ function setView(view) {
 }
 
 // ==============================================
-// REELS (YOUTUBE SHORTS LAYOUT) & SOCIAL FEATURES
+// REELS TIKTOK STYLE
 // ==============================================
 
 function saveReelsSrs() { localStorage.setItem(reelsSrsKey, JSON.stringify(reelsSrsData)); }
@@ -137,12 +183,11 @@ function createReelItem() {
     if (type === 4 && !hasSynonym) type = 2;
     if (type === 5 && !hasSynonym) type = 3;
 
-    // ID định danh của Reel để lưu Comment/Like
     var reelId = activeSetId + "_" + cleanWord(wordObj.word) + "_T" + type;
     reelDiv.dataset.reelid = reelId;
 
     var contentBox = document.createElement("div");
-    contentBox.className = "reel-content-box"; // Nằm ở giữa, chừa chỗ bên phải cho nút
+    contentBox.className = "reel-content-box";
 
     var srsPanelHtml = `
         <div class="reel-srs-panel">
@@ -190,7 +235,7 @@ function createReelItem() {
         if (type === 2) questionStr = "Nghĩa: " + wordObj.translation;
         if (type === 3) questionStr = "Từ vựng: " + wordObj.word;
         if (type === 4) questionStr = "Từ đồng nghĩa: " + wordObj.synonyms.join(", ");
-        if (type === 5) questionStr = "Từ vựng: " + wordObj.word + " (Hãy chọn Đồng Nghĩa)";
+        if (type === 5) questionStr = "Từ vựng: " + wordObj.word + " (Đồng Nghĩa)";
 
         var optionsHtml = options.map(opt => {
             var optText = "";
@@ -216,7 +261,6 @@ function createReelItem() {
         });
     }
 
-    // Các nút hẹn giờ SRS
     var srsBtns = contentBox.querySelectorAll('.rs-btn');
     srsBtns.forEach(btn => {
         btn.addEventListener('click', function() {
@@ -230,7 +274,6 @@ function createReelItem() {
 
     reelDiv.appendChild(contentBox);
 
-    // THANH TƯƠNG TÁC (LIKE, COMMENT, SHARE) BÊN PHẢI (YOUTUBE SHORTS)
     var socialHtml = `
         <div class="reel-side-actions">
             <button class="action-btn btn-like" data-id="${reelId}">♥<span class="action-label">Like</span></button>
@@ -240,12 +283,11 @@ function createReelItem() {
     `;
     reelDiv.insertAdjacentHTML('beforeend', socialHtml);
 
-    // Xử lý nút bấm tương tác
     var btnLike = reelDiv.querySelector('.btn-like');
     btnLike.addEventListener('click', function() { this.classList.toggle('liked'); });
 
     var btnComment = reelDiv.querySelector('.btn-comment');
-    btnComment.addEventListener('click', function() { window.openCommentSheet(reelId); });
+    btnComment.addEventListener('click', function() { openCommentSheet(reelId); });
 
     var btnShare = reelDiv.querySelector('.btn-share');
     btnShare.addEventListener('click', function() {
@@ -529,71 +571,41 @@ function parseRawVocabulary(text) {
 
 document.addEventListener("DOMContentLoaded", function() {
 
-  // === FIREBASE AUTH & USER PROFILE ===
+  // KẾT NỐI SỰ KIỆN NÚT COMMENT & ĐĂNG NHẬP
+  _bind("#close-comment", "click", closeCommentSheet);
+  _bind("#comment-overlay", "click", closeCommentSheet);
+  _bind("#send-comment-btn", "click", sendNewComment);
+
+  var authBtn = _el("#auth-btn");
+  if(authBtn) {
+      authBtn.addEventListener("click", function() {
+          if(!auth) { alert("Firebase Auth chưa tải xong hoặc bị lỗi kết nối!"); return; }
+          auth.signInWithPopup(authProvider).catch(function(error) { 
+              alert("Lỗi đăng nhập: " + error.message); 
+          });
+      });
+  }
+
   if (auth) {
       auth.onAuthStateChanged(function(user) {
-          var authBtn = _el("#auth-btn");
+          var btn = _el("#auth-btn");
           var userInfo = _el("#user-info");
           var userAvatar = _el("#user-avatar");
           if (user) {
               currentUser = user;
-              if(authBtn) authBtn.style.display = "none";
+              if(btn) btn.style.display = "none";
               if(userInfo) userInfo.style.display = "flex";
               if(userAvatar) userAvatar.src = user.photoURL;
           } else {
               currentUser = null;
-              if(authBtn) { authBtn.style.display = "block"; authBtn.textContent = "Đăng nhập"; }
+              if(btn) { btn.style.display = "block"; btn.textContent = "Đăng nhập"; }
               if(userInfo) userInfo.style.display = "none";
           }
       });
-      
-      _bind("#auth-btn", "click", function() {
-          auth.signInWithPopup(authProvider).catch(function(error) { alert("Lỗi đăng nhập: " + error.message); });
-      });
-      
       _bind("#user-info", "click", function() {
           if(confirm("Bạn muốn đăng xuất?")) auth.signOut();
       });
   }
-
-  // === REELS COMMENT SHEET LOGIC ===
-  var currentReelCommentId = null;
-  window.openCommentSheet = function(reelId) {
-      currentReelCommentId = reelId;
-      _el("#comment-overlay").classList.add("show");
-      _el("#comment-sheet").classList.add("show");
-      _el("#comment-list").innerHTML = "<p style='color:var(--muted);text-align:center;'>Đang tải bình luận...</p>";
-      _el("#comment-input").value = "";
-      
-      setTimeout(function() {
-          _el("#comment-list").innerHTML = `
-              <div class="comment-item">
-                  <div class="comment-author"><img src="https://ui-avatars.com/api/?name=SAT+Master&background=d5e88b&color=000"> SAT Master</div>
-                  <div class="comment-text">Từ này hay thi trong phần Reading lắm nè mọi người! </div>
-              </div>
-          `;
-          _el("#comment-count").textContent = "1";
-      }, 500);
-  };
-
-  _bind("#close-comment", "click", function() { _el("#comment-overlay").classList.remove("show"); _el("#comment-sheet").classList.remove("show"); });
-  _bind("#comment-overlay", "click", function() { _el("#comment-overlay").classList.remove("show"); _el("#comment-sheet").classList.remove("show"); });
-
-  _bind("#send-comment-btn", "click", function() {
-      if (!currentUser) { alert("Vui lòng đăng nhập Google để bình luận!"); return; }
-      var txt = _el("#comment-input").value.trim();
-      if (!txt) return;
-      
-      var newHtml = `
-          <div class="comment-item">
-              <div class="comment-author"><img src="${currentUser.photoURL}"> ${currentUser.displayName}</div>
-              <div class="comment-text">${txt}</div>
-          </div>
-      `;
-      _el("#comment-list").insertAdjacentHTML("beforeend", newHtml);
-      _el("#comment-input").value = "";
-      _el("#comment-count").textContent = parseInt(_el("#comment-count").textContent) + 1;
-  });
 
   var bsf = _el("#btn-save-firebase");
   if (bsf) {
