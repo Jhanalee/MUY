@@ -33,6 +33,12 @@
           <button class="nav-link" type="button" data-view="credit">Credit</button>
         </nav>
         <div class="topbar-tools">
+          <button id="auth-btn" class="login-btn">Đăng nhập</button>
+          <div id="user-info" class="user-profile" style="display:none; cursor:pointer;" title="Bấm để đăng xuất">
+              <img id="user-avatar" class="user-avatar" src="" alt="avatar">
+          </div>
+          <details class="settings-menu" id="settings-menu">
+            <!-- (Giữ nguyên đoạn code bên trong settings-menu của bạn) -->
           <details class="settings-menu" id="settings-menu">
             <summary class="settings-trigger" aria-label="Open settings" title="Settings">
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
@@ -236,7 +242,21 @@
             <p class="credit-subtitle">The Mastermind Developer</p>
             <p style="color: var(--subtle); margin-top: 40px; font-size: 14px; max-width: 500px; line-height: 1.6;">"Designed with passion. Coded with persistence. Dedicated to all SAT warriors out there aiming for perfection."</p>
         </section>
-
+        <!-- KHUNG COMMENT BOTTOM SHEET -->
+        <div class="comment-sheet-overlay" id="comment-overlay"></div>
+        <div class="comment-sheet" id="comment-sheet">
+            <div class="comment-header">
+                <span>Bình luận (<span id="comment-count">0</span>)</span>
+                <button class="close-comment" id="close-comment">×</button>
+            </div>
+            <div class="comment-list" id="comment-list">
+                <!-- Nội dung comment sẽ đổ vào đây -->
+            </div>
+            <div class="comment-input-area">
+                <input type="text" id="comment-input" placeholder="Nhập bình luận của bạn..." autocomplete="off">
+                <button id="send-comment-btn" class="send-comment-btn">Gửi</button>
+            </div>
+        </div>
       </main>
       <footer class="page-footer">
           <span>MAKE ROOM FOR NEW WORDS.</span>
@@ -246,6 +266,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="sets.js?v=999"></script>
     <script src="app.js?v=30"></script>
   </body>

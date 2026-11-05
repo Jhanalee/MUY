@@ -1,8 +1,17 @@
 /* global firebase, sets */
 var firebaseConfig = { apiKey: "AIzaSyCX_30nYbSoKmyyLBQBjTW_0K1zTUnm6CU", authDomain: "muy-flashcards.firebaseapp.com", projectId: "muy-flashcards", storageBucket: "muy-flashcards.firebasestorage.app", messagingSenderId: "745907745384", appId: "1:745907745384:web:826faa570f76bcfdeec1dd", measurementId: "G-L72QT1NLPH" };
 var db = null;
-try { if (typeof firebase !== "undefined") { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } } catch (e) {}
-
+var auth = null;
+var authProvider = null;
+var currentUser = null;
+try { 
+    if (typeof firebase !== "undefined") { 
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); 
+        db = firebase.firestore(); 
+        auth = firebase.auth();
+        authProvider = new firebase.auth.GoogleAuthProvider();
+    } 
+} catch (e) { console.warn("Lỗi kết nối Firebase:", e); }
 var storageKey = "marginalia-sat-progress-v2", activeSetStorageKey = "marginalia-sat-active-set-v1", voiceSettingsStorageKey = "sat-vocab-voice-settings-v1", themeStorageKey = "sat-vocab-theme-v1";
 var reelsSrsKey = "sat-reels-srs-v1";
 
@@ -120,6 +129,10 @@ function createReelItem() {
     if (type === 4 && !hasSynonym) type = 2;
     if (type === 5 && !hasSynonym) type = 3;
 
+    // TẠO DETERMINISTIC ID ĐỂ LƯU COMMENT & SHARE MÀ KHÔNG TỐN SERVER
+    var reelId = activeSetId + "_" + cleanWord(wordObj.word) + "_T" + type;
+    reelDiv.dataset.reelid = reelId;
+
     var contentBox = document.createElement("div");
     contentBox.className = "reel-content-box";
 
@@ -151,13 +164,11 @@ function createReelItem() {
         
         var fcBox = contentBox.querySelector('.reel-fc');
         var srsPanel = contentBox.querySelector('.reel-srs-panel');
-        
         fcBox.addEventListener('click', function() {
             fcBox.classList.add('revealed');
             srsPanel.classList.add('show');
             speakWord(wordObj.word);
         });
-
     } else {
         var allWords = activeSet().cards;
         var options = [wordObj];
@@ -178,30 +189,19 @@ function createReelItem() {
             if (type === 2 || type === 4) optText = opt.word;
             if (type === 3) optText = opt.translation;
             if (type === 5) optText = (opt.synonyms && opt.synonyms.length > 0) ? opt.synonyms.join(", ") : opt.translation; 
-            
             var isCorrect = (opt.word === wordObj.word) ? 'true' : 'false';
             return `<div class="reel-mcq-opt" data-correct="${isCorrect}">${optText}</div>`;
         }).join("");
 
-        contentBox.innerHTML = `
-            <div class="reel-mcq-question">${questionStr}</div>
-            <div class="reel-mcq-options">${optionsHtml}</div>
-        ` + srsPanelHtml;
+        contentBox.innerHTML = `<div class="reel-mcq-question">${questionStr}</div><div class="reel-mcq-options">${optionsHtml}</div>` + srsPanelHtml;
         
         var srsPanel = contentBox.querySelector('.reel-srs-panel');
         var opts = contentBox.querySelectorAll('.reel-mcq-opt');
-        
         opts.forEach(btn => {
             btn.addEventListener('click', function() {
                 opts.forEach(b => b.style.pointerEvents = 'none');
-                
-                if (this.dataset.correct === 'true') {
-                    this.classList.add('correct');
-                } else {
-                    this.classList.add('incorrect');
-                    contentBox.querySelector('.reel-mcq-opt[data-correct="true"]').classList.add('correct');
-                }
-                
+                if (this.dataset.correct === 'true') { this.classList.add('correct'); } 
+                else { this.classList.add('incorrect'); contentBox.querySelector('.reel-mcq-opt[data-correct="true"]').classList.add('correct'); }
                 srsPanel.classList.add('show');
                 speakWord(wordObj.word);
             });
@@ -214,15 +214,36 @@ function createReelItem() {
             var delayMs = parseInt(this.dataset.delay);
             reelsSrsData[wordObj.word] = Date.now() + delayMs;
             saveReelsSrs();
-            
             var nextReel = reelDiv.nextElementSibling;
-            if (nextReel) {
-                container.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
-            }
+            if (nextReel) { container.scrollBy({ top: window.innerHeight, behavior: 'smooth' }); }
         });
     });
 
     reelDiv.appendChild(contentBox);
+
+    // THÊM THANH SOCIAL TIKTOK STYLE
+    var socialHtml = `
+        <div class="reel-side-actions">
+            <button class="action-btn btn-like" data-id="${reelId}">♥<span class="action-label">Like</span></button>
+            <button class="action-btn btn-comment" data-id="${reelId}">💬<span class="action-label">C.ment</span></button>
+            <button class="action-btn btn-share" data-id="${reelId}">➦<span class="action-label">Share</span></button>
+        </div>
+    `;
+    reelDiv.insertAdjacentHTML('beforeend', socialHtml);
+
+    // Gắn sự kiện Like (đổi màu) và Comment (Mở bottom sheet)
+    var btnLike = reelDiv.querySelector('.btn-like');
+    btnLike.addEventListener('click', function() { this.classList.toggle('liked'); });
+
+    var btnComment = reelDiv.querySelector('.btn-comment');
+    btnComment.addEventListener('click', function() { openCommentSheet(reelId); });
+
+    var btnShare = reelDiv.querySelector('.btn-share');
+    btnShare.addEventListener('click', function() {
+        var link = window.location.origin + window.location.pathname + "?reel=" + reelId;
+        navigator.clipboard.writeText(link).then(function() { alert("Đã copy link Reel để chia sẻ:\n" + link); });
+    });
+
     container.appendChild(reelDiv);
 }
 
@@ -689,6 +710,81 @@ document.addEventListener("DOMContentLoaded", function() {
       if(e.key === " "){ e.preventDefault(); if(ffc) setCardFace(!ffc.classList.contains("is-flipped")); }
       if(e.key === "ArrowLeft") gradeCard("review");
       if(e.key === "ArrowRight") gradeCard("remembered");
+      // === LOGIC FIREBASE AUTH VÀ ĐĂNG NHẬP ===
+  if (auth) {
+      auth.onAuthStateChanged(function(user) {
+          var authBtn = _el("#auth-btn");
+          var userInfo = _el("#user-info");
+          var userAvatar = _el("#user-avatar");
+          if (user) {
+              currentUser = user;
+              if(authBtn) authBtn.style.display = "none";
+              if(userInfo) userInfo.style.display = "flex";
+              if(userAvatar) userAvatar.src = user.photoURL;
+          } else {
+              currentUser = null;
+              if(authBtn) { authBtn.style.display = "block"; authBtn.textContent = "Đăng nhập"; }
+              if(userInfo) userInfo.style.display = "none";
+          }
+      });
+      
+      _bind("#auth-btn", "click", function() {
+          auth.signInWithPopup(authProvider).catch(function(error) { alert("Lỗi đăng nhập: " + error.message); });
+      });
+      
+      _bind("#user-info", "click", function() {
+          if(confirm("Bạn muốn đăng xuất?")) auth.signOut();
+      });
+  }
+
+  // === LOGIC MỞ ĐÓNG VÀ HIỂN THỊ COMMENT SHEET ===
+  var currentReelCommentId = null;
+  window.openCommentSheet = function(reelId) {
+      currentReelCommentId = reelId;
+      _el("#comment-overlay").classList.add("show");
+      _el("#comment-sheet").classList.add("show");
+      _el("#comment-list").innerHTML = "<p style='color:var(--muted);text-align:center;'>Đang tải bình luận...</p>";
+      _el("#comment-input").value = "";
+      
+      // Load comment từ Firebase (Dùng tạm dữ liệu giả nếu chưa setup Firebase Rules)
+      setTimeout(function() {
+          _el("#comment-list").innerHTML = `
+              <div class="comment-item">
+                  <div class="comment-author"><img src="https://ui-avatars.com/api/?name=SAT+Master&background=d5e88b&color=000"> SAT Master</div>
+                  <div class="comment-text">Từ này hay thi trong phần Reading lắm nè mọi người! (Minh họa)</div>
+              </div>
+          `;
+          _el("#comment-count").textContent = "1";
+      }, 500);
+  };
+
+  _bind("#close-comment", "click", function() {
+      _el("#comment-overlay").classList.remove("show");
+      _el("#comment-sheet").classList.remove("show");
+  });
+  _bind("#comment-overlay", "click", function() {
+      _el("#comment-overlay").classList.remove("show");
+      _el("#comment-sheet").classList.remove("show");
+  });
+
+  _bind("#send-comment-btn", "click", function() {
+      if (!currentUser) { alert("Vui lòng đăng nhập để bình luận!"); return; }
+      var txt = _el("#comment-input").value.trim();
+      if (!txt) return;
+      
+      // Đăng comment tạm lên giao diện ngay lập tức
+      var newHtml = `
+          <div class="comment-item">
+              <div class="comment-author"><img src="${currentUser.photoURL}"> ${currentUser.displayName}</div>
+              <div class="comment-text">${txt}</div>
+          </div>
+      `;
+      _el("#comment-list").insertAdjacentHTML("beforeend", newHtml);
+      _el("#comment-input").value = "";
+      _el("#comment-count").textContent = parseInt(_el("#comment-count").textContent) + 1;
+      
+      // (Bước sau chúng ta sẽ code lệnh Push dòng chữ này lên Firebase Firestore)
+  });
   });
 
   applyTheme(loadTheme());
