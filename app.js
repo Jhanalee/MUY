@@ -546,6 +546,83 @@ function generateCrossword() {
   drawCrosswordGrid(); _hide("#cw-setup-panel"); _show("#cw-run-panel"); _show("#cw-submit-btn"); _hide("#cw-result-summary");
 }
 
+function drawCrosswordGrid() {
+  if(cwWordsPlaced.length===0) return;
+  var mX=999, mx=-999, mY=999, my=-999;
+  for(var k in cwGridData){ var p=k.split(','); var x=parseInt(p[0]), y=parseInt(p[1]); if(x<mX)mX=x; if(x>mx)mx=x; if(y<mY)mY=y; if(y>my)my=y; }
+  var cont = _el("#cw-grid-container"); var tb = document.createElement("table"); tb.className="cw-board";
+  
+  for(var r=mY; r<=my; r++){
+    var tr=document.createElement("tr");
+    for(var c=mX; c<=mx; c++){
+      var td=document.createElement("td"); td.className="cw-cell"; var cd=cwGridData[c+','+r];
+      if(!cd) td.classList.add("empty");
+      else {
+        var isS=false, sN=0;
+        for(var i=0; i<cwWordsPlaced.length; i++) if(cwWordsPlaced[i].x===c && cwWordsPlaced[i].y===r){ isS=true; sN=cwWordsPlaced[i].num; break; }
+        if(isS){ var sp=document.createElement("span"); sp.className="cw-number"; sp.textContent=sN; td.appendChild(sp); }
+        
+        var inp=document.createElement("input"); inp.type="text"; inp.className="cw-input"; inp.maxLength=1;
+        inp.setAttribute("autocomplete", "off"); inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "characters"); inp.setAttribute("spellcheck", "false");
+        inp.dataset.x=c; inp.dataset.y=r; inp.dataset.wids=cd.wordIds.join(",");
+        
+        inp.addEventListener("click", function(e){
+          var wids=e.target.dataset.wids.split(",");
+          if(wids.length>1 && document.activeElement===e.target){ cwCurrentWordId=(cwCurrentWordId==parseInt(wids[0]))?parseInt(wids[1]):parseInt(wids[0]); cwCurrentDir=getWordById(cwCurrentWordId).dir; highlightCurrentCwWord(); }
+        });
+        inp.addEventListener("focus", function(e){
+          var wids=e.target.dataset.wids.split(",");
+          if(cwCurrentWordId===null || wids.indexOf(String(cwCurrentWordId))===-1){ cwCurrentWordId=parseInt(wids[0]); cwCurrentDir=getWordById(cwCurrentWordId).dir; }
+          highlightCurrentCwWord(); setTimeout(function(){e.target.select();}, 10);
+        });
+        inp.addEventListener("keydown", function(e){
+          var cx=parseInt(e.target.dataset.x), cy=parseInt(e.target.dataset.y);
+          if(e.key==="Backspace"){ if(e.target.value===""){ e.preventDefault(); focusCwCell(cx-(cwCurrentDir==='H'?1:0), cy-(cwCurrentDir==='V'?1:0)); } else { e.target.value=""; e.preventDefault(); } } 
+          else if(e.key==="ArrowRight"){ e.preventDefault(); focusCwCell(cx+1,cy); } else if(e.key==="ArrowLeft"){ e.preventDefault(); focusCwCell(cx-1,cy); } else if(e.key==="ArrowDown"){ e.preventDefault(); focusCwCell(cx,cy+1); } else if(e.key==="ArrowUp"){ e.preventDefault(); focusCwCell(cx,cy-1); }
+        });
+        inp.addEventListener("input", function(e){
+          var v=e.target.value.replace(/[^a-zA-Z]/g,"").toUpperCase();
+          if(v.length>0){ e.target.value=v.charAt(v.length-1); focusCwCell(parseInt(e.target.dataset.x)+(cwCurrentDir==='H'?1:0), parseInt(e.target.dataset.y)+(cwCurrentDir==='V'?1:0)); } else e.target.value="";
+        });
+        td.appendChild(inp);
+      } tr.appendChild(td);
+    } tb.appendChild(tr);
+  }
+  if(cont) { cont.innerHTML=""; cont.appendChild(tb); }
+
+  var aL = _el("#cw-across-list"), dL = _el("#cw-down-list");
+  if(aL) aL.innerHTML=""; if(dL) dL.innerHTML="";
+  for(var w=0; w<cwWordsPlaced.length; w++){
+    var wp=cwWordsPlaced[w], li=document.createElement("li"); li.className="cw-clue-item"; li.id="cw-clue-"+wp.id;
+    li.innerHTML="<span class='cw-clue-num'>"+wp.num+".</span> "+wp.clue;
+    if(wp.dir==='H' && aL) aL.appendChild(li); else if(dL) dL.appendChild(li);
+  }
+}
+
+function getWordById(id) { for(var i=0; i<cwWordsPlaced.length; i++) if(cwWordsPlaced[i].id===id) return cwWordsPlaced[i]; return null; }
+function focusCwCell(x,y) { var inp=_el(".cw-input[data-x='"+x+"'][data-y='"+y+"']"); if(inp) inp.focus(); }
+function highlightCurrentCwWord() {
+  document.querySelectorAll(".cw-cell").forEach(function(c){c.classList.remove("active-word");});
+  document.querySelectorAll(".cw-clue-item").forEach(function(c){c.classList.remove("active");});
+  if(cwCurrentWordId===null) return;
+  document.querySelectorAll(".cw-input").forEach(function(inp){ if(inp.dataset.wids.split(",").indexOf(String(cwCurrentWordId))!==-1) inp.parentElement.classList.add("active-word"); });
+  var el=_el("#cw-clue-"+cwCurrentWordId); if(el) el.classList.add("active");
+}
+
+function submitCrossword() {
+  if(!confirm("Chốt đáp án và kiểm tra?")) return;
+  var allC=true;
+  document.querySelectorAll(".cw-input").forEach(function(inp){
+    var ex=cwGridData[inp.dataset.x+','+inp.dataset.y].char; inp.disabled=true;
+    if(inp.value.toUpperCase()===ex) inp.parentElement.classList.add("correct");
+    else { inp.parentElement.classList.add("incorrect"); inp.value=ex; allC=false; }
+  });
+  _hide("#cw-submit-btn"); _show("#cw-result-summary");
+  var t=_el("#cw-result-title");
+  if(t){ t.textContent = allC ? "Tuyệt Vời! Ô chữ đã giải mã 100%!" : "Chưa hoàn hảo. Xem lại ô đỏ!"; t.style.color = allC ? "var(--lime)" : "var(--rose)"; }
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
 function parseRawVocabulary(text) {
   var lines=text.trim().split("\n"), cards=[];
   lines.forEach(function(l){
