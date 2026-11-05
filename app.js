@@ -14,6 +14,9 @@ try {
         db = firebase.firestore(); 
         auth = firebase.auth();
         authProvider = new firebase.auth.GoogleAuthProvider();
+        
+        // BẬT TÍNH NĂNG GHI NHỚ ĐĂNG NHẬP (TRÁNH BỊ VĂNG KHI TẢI LẠI TRANG)
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
     } 
 } catch (e) { console.warn("Lỗi kết nối Firebase:", e); }
 
@@ -47,53 +50,105 @@ function _getVal(s) { var e = _el(s); return e ? e.value : ""; }
 function _bind(s, ev, cb) { var e = _el(s); if(e) e.addEventListener(ev, cb); }
 
 // ==============================================
-// HÀM GLOBAL COMMENT TRƯỢT
+// LOGIC COMMENT (GHI/ĐỌC TRỰC TIẾP LÊN FIREBASE)
 // ==============================================
 var currentReelCommentId = null;
+var commentUnsubscribe = null; // Dùng để ngắt kết nối Lắng nghe khi đóng bảng Comment
 
 function openCommentSheet(reelId) {
     currentReelCommentId = reelId;
     _el("#comment-overlay").classList.add("show");
     _el("#comment-sheet").classList.add("show");
-    _el("#comment-list").innerHTML = "<p style='color:var(--muted);text-align:center;'>Đang tải bình luận...</p>";
     _el("#comment-input").value = "";
     
-    setTimeout(function() {
-        _el("#comment-list").innerHTML = `
-            <div class="comment-item">
-                <div class="comment-author"><img src="https://ui-avatars.com/api/?name=SAT+Master&background=d5e88b&color=000"> SAT Master</div>
-                <div class="comment-text">Từ này hay thi trong phần Reading lắm nè mọi người! </div>
-            </div>
-        `;
-        _el("#comment-count").textContent = "1";
-    }, 400);
+    var cList = _el("#comment-list");
+    cList.innerHTML = "<p style='color:var(--lime);text-align:center;padding:20px;'>Đang tải bình luận...</p>";
+    _el("#comment-count").textContent = "...";
+
+    if (!db) {
+        cList.innerHTML = "<p style='color:var(--rose);text-align:center;'>Lỗi kết nối Server. Không thể xem bình luận.</p>";
+        return;
+    }
+
+    // Lắng nghe dữ liệu Comment thực tế từ Firestore
+    commentUnsubscribe = db.collection("reel_comments")
+        .doc(reelId)
+        .collection("messages")
+        .orderBy("timestamp", "asc")
+        .onSnapshot(function(snapshot) {
+            _el("#comment-count").textContent = snapshot.docs.length;
+            
+            if (snapshot.empty) {
+                cList.innerHTML = "<p style='color:var(--muted);text-align:center;padding:30px;'>Chưa có bình luận nào. Hãy là người đầu tiên!</p>";
+                return;
+            }
+
+            cList.innerHTML = "";
+            snapshot.forEach(function(doc) {
+                var data = doc.data();
+                var timeStr = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "Vừa xong";
+                var avatarUrl = data.authorAvatar || "https://ui-avatars.com/api/?name=" + data.authorName + "&background=d5e88b&color=000";
+                
+                var html = `
+                    <div class="comment-item">
+                        <div class="comment-author">
+                            <img src="${avatarUrl}"> 
+                            ${data.authorName} <span style="color:var(--muted); font-size:10px; font-weight:normal;">- ${timeStr}</span>
+                        </div>
+                        <div class="comment-text">${data.text}</div>
+                    </div>
+                `;
+                cList.insertAdjacentHTML("beforeend", html);
+            });
+            // Tự động cuộn xuống comment mới nhất
+            cList.scrollTop = cList.scrollHeight;
+        }, function(error) {
+            console.error("Lỗi tải bình luận: ", error);
+            cList.innerHTML = "<p style='color:var(--rose);text-align:center;'>Không thể tải bình luận (Lỗi quyền truy cập Server).</p>";
+        });
 }
 
 function closeCommentSheet() {
     _el("#comment-overlay").classList.remove("show");
     _el("#comment-sheet").classList.remove("show");
+    // Hủy lắng nghe dữ liệu khi đóng để tiết kiệm tài nguyên mạng
+    if (commentUnsubscribe) {
+        commentUnsubscribe();
+        commentUnsubscribe = null;
+    }
 }
 
 function sendNewComment() {
     if (!currentUser) { alert("Vui lòng đăng nhập Google ở góc phải phía trên để bình luận!"); return; }
-    var txt = _el("#comment-input").value.trim();
+    if (!currentReelCommentId || !db) return;
+    
+    var inputEl = _el("#comment-input");
+    var txt = inputEl.value.trim();
     if (!txt) return;
     
-    var newHtml = `
-        <div class="comment-item">
-            <div class="comment-author"><img src="${currentUser.photoURL}"> ${currentUser.displayName}</div>
-            <div class="comment-text">${txt}</div>
-        </div>
-    `;
-    _el("#comment-list").insertAdjacentHTML("beforeend", newHtml);
-    _el("#comment-input").value = "";
-    _el("#comment-count").textContent = parseInt(_el("#comment-count").textContent) + 1;
+    var btn = _el("#send-comment-btn");
+    btn.disabled = true;
+    btn.textContent = "...";
+
+    // Ghi thẳng lên Firestore
+    db.collection("reel_comments").doc(currentReelCommentId).collection("messages").add({
+        authorName: currentUser.displayName || "Anonymous",
+        authorEmail: currentUser.email || "",
+        authorAvatar: currentUser.photoURL || "",
+        text: txt,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(function() {
+        inputEl.value = "";
+        btn.disabled = false;
+        btn.textContent = "Gửi";
+    }).catch(function(error) {
+        alert("Lỗi gửi bình luận: " + error.message);
+        btn.disabled = false;
+        btn.textContent = "Gửi";
+    });
 }
 
 
-// ==============================================
-// CÁC HÀM TIỆN ÍCH LÕI
-// ==============================================
 function activeSet() { return setsById.get(activeSetId) || allSets[0] || { id: "default", name: "Empty", cards: [] }; }
 function loadActiveSet() { try { return setsById.has(localStorage.getItem(activeSetStorageKey)) ? localStorage.getItem(activeSetStorageKey) : (allSets[0] ? allSets[0].id : "essentials"); } catch (e) { return allSets[0] ? allSets[0].id : "essentials"; } }
 function loadVoiceSettings() { var d = { gender: "female", speed: "normal", onCard: true, onFlip: true }; try { var s = JSON.parse(localStorage.getItem(voiceSettingsStorageKey)); if (!s) return d; return { gender: s.gender||d.gender, speed: s.speed||d.speed, onCard: s.onCard!==false, onFlip: s.onFlip!==false }; } catch (e) { return d; } }
@@ -111,9 +166,6 @@ function highlightWordHtml(sen, word) { if (!sen) return ""; var cw = (word||"")
 function setCardFace(isF) { var fc = _el("#flashcard"); if (!fc) return; isF ? fc.classList.add("is-flipped") : fc.classList.remove("is-flipped"); var f = _el("#card-front"), b = _el("#card-back"); if(f) f.setAttribute("aria-hidden", String(isF)); if(b) b.setAttribute("aria-hidden", String(!isF)); var sv = _el("#study-view"); if (isF && voiceSettings.onFlip && sv && !sv.hidden) { var e=currentWord(); if(e) speakWord(e.word); } }
 function cleanWord(w) { return w.replace(/[^a-zA-Z]/g,"").toUpperCase(); }
 
-// ==============================================
-// UPDATE RANGE & NAVIGATION (ĐÃ THÊM LẠI CÁC HÀM BỊ THIẾU)
-// ==============================================
 function updateTestRangeBounds() { 
     var max = activeSet().cards.length||1; 
     var e = _el("#test-end-idx"); 
@@ -252,7 +304,7 @@ function createReelItem() {
         if (type === 2) questionStr = "Nghĩa: " + wordObj.translation;
         if (type === 3) questionStr = "Từ vựng: " + wordObj.word;
         if (type === 4) questionStr = "Từ đồng nghĩa: " + wordObj.synonyms.join(", ");
-        if (type === 5) questionStr = "Từ vựng: " + wordObj.word + " (Hãy chọn Đồng Nghĩa)";
+        if (type === 5) questionStr = "Từ vựng: " + wordObj.word + " (Đồng Nghĩa)";
 
         var optionsHtml = options.map(opt => {
             var optText = "";
@@ -332,7 +384,7 @@ function initReels() {
 
 
 // ==========================================
-// CÁC HÀM CŨ (HOME, STUDY, TEST, GAME)
+// CÁC HÀM TRANG CHỦ, STUDY, TỪ VỰNG
 // ==========================================
 function renderHome() {
   var g=_el("#home-set-grid"); if(!g) return; g.innerHTML="";
@@ -509,9 +561,8 @@ function submitFullTest() {
 }
 
 // ==============================================
-// GAME CROSSWORD & SUBMIT HÀM CUỐI CÙNG
+// GAME CROSSWORD
 // ==============================================
-
 function generateCrossword() {
   var sIdx = parseInt(_getVal("#cw-start-idx"))||1, eIdx = parseInt(_getVal("#cw-end-idx"))||10, cType = _getVal("#cw-clue-type-select") || "meaning";
   var bc = activeSet().cards.slice().sort(function(a,b){return a.word.localeCompare(b.word);});
@@ -633,7 +684,6 @@ function highlightCurrentCwWord() {
   var el=_el("#cw-clue-"+cwCurrentWordId); if(el) el.classList.add("active");
 }
 
-// BỔ SUNG HÀM CÒN THIẾU
 function submitCrossword() {
   if(!confirm("Chốt đáp án và kiểm tra?")) return;
   var allC=true;
@@ -673,7 +723,7 @@ function parseRawVocabulary(text) {
 
 document.addEventListener("DOMContentLoaded", function() {
 
-  // KẾT NỐI SỰ KIỆN NÚT COMMENT & ĐĂNG NHẬP
+  // KẾT NỐI SỰ KIỆN NÚT COMMENT VÀ ĐĂNG NHẬP
   _bind("#close-comment", "click", closeCommentSheet);
   _bind("#comment-overlay", "click", closeCommentSheet);
   _bind("#send-comment-btn", "click", sendNewComment);
@@ -681,13 +731,14 @@ document.addEventListener("DOMContentLoaded", function() {
   var authBtn = _el("#auth-btn");
   if(authBtn) {
       authBtn.addEventListener("click", function() {
-          if(!auth) { alert("Firebase Auth chưa kết nối thành công!"); return; }
+          if(!auth) { alert("Firebase Auth chưa tải xong hoặc bị lỗi kết nối!"); return; }
           auth.signInWithPopup(authProvider).catch(function(error) { 
               alert("Lỗi đăng nhập: " + error.message); 
           });
       });
   }
 
+  // LẮNG NGHE TRẠNG THÁI ĐĂNG NHẬP
   if (auth) {
       auth.onAuthStateChanged(function(user) {
           var btn = _el("#auth-btn");
