@@ -140,7 +140,25 @@
         </section>
 
         <!-- KHOẢNG TRỜI REELS (DOOMSCROLLING) -->
+        <!-- KHOẢNG TRỜI REELS (DOOMSCROLLING) -->
         <section class="view reels-view" id="reels-view" hidden>
+            <div class="reels-container" id="reels-container">
+                <!-- Nút bật nhạc chill lofi (Sẽ được JS xử lý) -->
+                <div class="music-toggle" id="music-toggle" title="Phát nhạc thư giãn">
+                    <span class="music-icon">🎵</span> Lofi Chill
+                </div>
+                
+                <!-- Audio element ẩn -->
+                <audio id="chill-audio" loop preload="none">
+                    <!-- Nguồn nhạc Lo-fi không bản quyền (bạn có thể thay đổi link MP3) -->
+                    <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
+                </audio>
+
+                <div id="reels-feed-content">
+                    <!-- Javascript sẽ đổ Reel dọc vào đây -->
+                </div>
+            </div>
+        </section>
             <div class="reels-container" id="reels-container">
                 <!-- Javascript sẽ đổ Reel dọc vào đây -->
             </div>
