@@ -4,7 +4,7 @@ var db = null;
 try { if (typeof firebase !== "undefined") { if (!firebase.apps.length) firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } } catch (e) {}
 
 var storageKey = "marginalia-sat-progress-v2", activeSetStorageKey = "marginalia-sat-active-set-v1", voiceSettingsStorageKey = "sat-vocab-voice-settings-v1", themeStorageKey = "sat-vocab-theme-v1";
-var reelsSrsKey = "sat-reels-srs-v1"; // Lưu timestamp cho Reels Spaced Repetition
+var reelsSrsKey = "sat-reels-srs-v1";
 
 var allSets = (typeof sets !== "undefined" && Array.isArray(sets)) ? sets : [];
 var setsById = new Map(); allSets.forEach(function(set) { setsById.set(set.id, set); });
@@ -90,10 +90,6 @@ function setView(view) {
   window.scrollTo(0,0);
 }
 
-// ==========================================
-// TÍNH NĂNG REELS (DOOMSCROLLING MICRO-LEARNING)
-// ==========================================
-
 function saveReelsSrs() { localStorage.setItem(reelsSrsKey, JSON.stringify(reelsSrsData)); }
 
 function getNextReelWord() {
@@ -101,15 +97,12 @@ function getNextReelWord() {
     var c = activeSet().cards;
     if (c.length === 0) return null;
     
-    // Tìm các từ đến hạn ôn tập
     var dueWords = c.filter(function(w) { return reelsSrsData[w.word] && reelsSrsData[w.word] <= now; });
     
-    // 50% cơ hội lôi từ cũ ra ôn, 50% cơ hội học từ mới
     if (dueWords.length > 0 && Math.random() > 0.5) {
         return dueWords[Math.floor(Math.random() * dueWords.length)];
     }
     
-    // Nếu không thì random 1 từ bất kỳ
     return c[Math.floor(Math.random() * c.length)];
 }
 
@@ -121,18 +114,15 @@ function createReelItem() {
     var reelDiv = document.createElement("div");
     reelDiv.className = "reel-item";
     
-    // Trộn ngẫu nhiên 5 dạng: 1=Flashcard, 2=Meaning->Word, 3=Word->Meaning, 4=Synonym->Word, 5=Word->Synonym
     var type = Math.floor(Math.random() * 5) + 1;
     var hasSynonym = wordObj.synonyms && wordObj.synonyms.length > 0;
     
-    // Fallback nếu không có synonym
     if (type === 4 && !hasSynonym) type = 2;
     if (type === 5 && !hasSynonym) type = 3;
 
     var contentBox = document.createElement("div");
     contentBox.className = "reel-content-box";
 
-    // Khung SRS 4 nút
     var srsPanelHtml = `
         <div class="reel-srs-panel">
             <div class="reel-srs-grid">
@@ -145,7 +135,6 @@ function createReelItem() {
     `;
 
     if (type === 1) {
-        // DẠNG 1: FLASHCARD CHẠM LÀ HIỆN
         var synStr = hasSynonym ? "Đồng nghĩa: " + wordObj.synonyms.join(", ") : "";
         var exStr = highlightWordHtml(wordObj.example || "", wordObj.word);
         
@@ -170,10 +159,8 @@ function createReelItem() {
         });
 
     } else {
-        // DẠNG 2 ĐẾN 5: TRẮC NGHIỆM
         var allWords = activeSet().cards;
         var options = [wordObj];
-        // Lấy 3 đáp án nhiễu
         while(options.length < 4 && options.length < allWords.length) {
             var rand = allWords[Math.floor(Math.random() * allWords.length)];
             if (!options.find(o => o.word === rand.word)) options.push(rand);
@@ -190,7 +177,7 @@ function createReelItem() {
             var optText = "";
             if (type === 2 || type === 4) optText = opt.word;
             if (type === 3) optText = opt.translation;
-            if (type === 5) optText = (opt.synonyms && opt.synonyms.length > 0) ? opt.synonyms.join(", ") : opt.translation; // Fallback
+            if (type === 5) optText = (opt.synonyms && opt.synonyms.length > 0) ? opt.synonyms.join(", ") : opt.translation; 
             
             var isCorrect = (opt.word === wordObj.word) ? 'true' : 'false';
             return `<div class="reel-mcq-opt" data-correct="${isCorrect}">${optText}</div>`;
@@ -206,25 +193,21 @@ function createReelItem() {
         
         opts.forEach(btn => {
             btn.addEventListener('click', function() {
-                // Khóa không cho bấm nữa
                 opts.forEach(b => b.style.pointerEvents = 'none');
                 
                 if (this.dataset.correct === 'true') {
                     this.classList.add('correct');
                 } else {
                     this.classList.add('incorrect');
-                    // Hiện đáp án đúng
                     contentBox.querySelector('.reel-mcq-opt[data-correct="true"]').classList.add('correct');
                 }
                 
-                // Hiện bảng SRS
                 srsPanel.classList.add('show');
                 speakWord(wordObj.word);
             });
         });
     }
 
-    // Gắn sự kiện cho 4 nút SRS
     var srsBtns = contentBox.querySelectorAll('.rs-btn');
     srsBtns.forEach(btn => {
         btn.addEventListener('click', function() {
@@ -232,7 +215,6 @@ function createReelItem() {
             reelsSrsData[wordObj.word] = Date.now() + delayMs;
             saveReelsSrs();
             
-            // Tự động cuộn mượt xuống bài tiếp theo
             var nextReel = reelDiv.nextElementSibling;
             if (nextReel) {
                 container.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
@@ -248,23 +230,17 @@ function initReels() {
     var container = _el("#reels-container");
     if (!container) return;
     container.innerHTML = "";
-    // Nạp sẵn 3 Reel đầu tiên
     createReelItem();
     createReelItem();
     createReelItem();
     
-    // Infinite Scroll
     container.addEventListener('scroll', function() {
         if (container.scrollTop + container.clientHeight >= container.scrollHeight - 100) {
-            createReelItem(); // Chạm đáy thì nạp thêm
+            createReelItem(); 
         }
     });
 }
 
-
-// ==========================================
-// CÁC HÀM CŨ (HOME, STUDY, TEST, GAME)
-// ==========================================
 function renderHome() {
   var g=_el("#home-set-grid"); if(!g) return; g.innerHTML="";
   allSets.forEach(function(set, i){
@@ -318,6 +294,92 @@ function renderWords() {
   });
 }
 
+function startStudy() {
+    sessionReviewWords={}; sessionRememberedWords={}; cardsSeenInSession={}; completedCardsInSession=0;
+    var c = activeSet().cards; totalCardsInSession = c.length; 
+    
+    // Nếu set rỗng, không làm gì cả
+    if(totalCardsInSession === 0) return;
+    
+    var iw = c.map(function(x){ return x.word; });
+    if (currentOrderMode === "random") { 
+        for(var i=iw.length-1; i>0; i--){ var j=Math.floor(Math.random()*(i+1)); var t=iw[i]; iw[i]=iw[j]; iw[j]=t; } 
+    } else { 
+        iw.sort(function(a,b){ return a.localeCompare(b); }); 
+    }
+    studyQueue = iw.map(function(w){ return {word:w, availableAt:0, step:0}; });
+    
+    _hide("#completion-panel"); 
+    _hide("#review-waiting"); 
+    renderNextCard();
+}
+
+function gradeCard(status) {
+    if (!currentCardObj) return; 
+    cardsSeenInSession[currentCardObj.word] = true;
+    
+    if (status === "review") {
+        sessionReviewWords[currentCardObj.word] = true; delete sessionRememberedWords[currentCardObj.word];
+        statusByWord[currentCardObj.word] = "review"; currentCardObj.step = 0; currentCardObj.availableAt = Date.now()+15000; studyQueue.push(currentCardObj);
+    } else if (status === "remembered") {
+        if (currentCardObj.step === 0) { currentCardObj.step = 1; currentCardObj.availableAt = Date.now()+120000; studyQueue.push(currentCardObj); } 
+        else { sessionRememberedWords[currentCardObj.word] = true; delete sessionReviewWords[currentCardObj.word]; statusByWord[currentCardObj.word] = "remembered"; completedCardsInSession++; }
+    }
+    currentCardObj = null; saveProgress(); renderNextCard();
+}
+
+function renderNextCard() {
+    if (waitingInterval) { clearInterval(waitingInterval); waitingInterval = null; }
+    if (studyQueue.length === 0 && !currentCardObj) { showCompletion(); return; }
+    var now = Date.now(); var avail = [];
+    for (var i=0; i<studyQueue.length; i++) if (studyQueue[i].availableAt <= now) avail.push({c:studyQueue[i], idx:i});
+    var nIdx = -1;
+    if (avail.length > 0) { var revs = avail.filter(function(x){ return x.c.availableAt > 0; }); if(revs.length>0){ revs.sort(function(a,b){return a.c.availableAt - b.c.availableAt;}); nIdx=revs[0].idx; } else { nIdx = avail[0].idx; } }
+
+    if (nIdx !== -1) {
+        _hide("#review-waiting"); _show("#card-scene"); _show("#answer-area");
+        currentCardObj = studyQueue.splice(nIdx, 1)[0]; renderCard();
+    } else {
+        currentCardObj = null; _hide("#card-scene"); _hide("#answer-area"); _show("#review-waiting");
+        if(studyQueue.length > 0) {
+            var mT = studyQueue[0].availableAt;
+            for (var j=1; j<studyQueue.length; j++) if(studyQueue[j].availableAt<mT) mT=studyQueue[j].availableAt;
+            updateCountdown(mT); waitingInterval = setInterval(function(){ Date.now()>=mT ? renderNextCard() : updateCountdown(mT); }, 1000);
+        } else {
+            showCompletion();
+        }
+    }
+}
+
+function updateCountdown(t) { var d = Math.max(0, Math.ceil((t - Date.now())/1000)); _txt("#review-countdown", formatCount(Math.floor(d/60)) + ":" + formatCount(d%60)); }
+
+function renderCard() {
+  var e = currentWord(); if (!e) return;
+  var dIdx = Object.keys(cardsSeenInSession).length; if(!cardsSeenInSession[e.word]) dIdx++;
+  if(dIdx>totalCardsInSession) dIdx=totalCardsInSession; if(dIdx===0) dIdx=1;
+  
+  _html("#card-index", formatCount(dIdx)+" <span>/ "+formatCount(totalCardsInSession)+"</span>");
+  _txt("#front-pos", (e.pos||"word").toUpperCase()); _txt("#front-word", e.word); _txt("#front-phonetic", e.phonetic||"");
+  _txt("#back-word", e.word); _txt("#back-translation", e.translation||"");
+  document.querySelectorAll(".card-set-name").forEach(function(l){ l.textContent = activeSet().name.toUpperCase(); });
+  
+  var bs = _el("#back-synonyms"); if(bs){ bs.innerHTML=""; var syns = Array.isArray(e.synonyms) ? e.synonyms : []; syns.forEach(function(s,i){ bs.appendChild(document.createTextNode(s)); if(i<syns.length-1){var sp=document.createElement("span"); sp.textContent=" · "; bs.appendChild(sp);} }); }
+  var be = _el("#back-example"); if(be){ be.innerHTML = highlightWordHtml(e.example||"", e.word); }
+  
+  var pf = _el("#progress-fill"); if(pf) pf.style.width = ((completedCardsInSession/(totalCardsInSession||1))*100)+"%";
+  setCardFace(false); var sv = _el("#study-view"); if (voiceSettings.onCard && sv && !sv.hidden) speakWord(e.word);
+}
+
+function showCompletion() {
+  var fc = _el("#flashcard"); if (fc) fc.classList.remove("is-flipped");
+  _hide("#card-scene"); _hide("#answer-area"); _hide("#review-waiting"); _show("#completion-panel");
+  var pf = _el("#progress-fill"); if(pf) pf.style.width = "100%";
+  _txt("#completion-copy", Object.keys(sessionRememberedWords).length + " remembered · " + Object.keys(sessionReviewWords).length + " to revisit.");
+}
+
+function updateTestRangeBounds() { var max = activeSet().cards.length||1; var e = _el("#test-end-idx"); if(e){ e.max=max; if(!e.value || parseInt(e.value)>max) e.value=max; } }
+function normStr(s) { return (s||"").trim().toLowerCase().replace(/[.,!?;:()]/g,''); }
+
 function generateTestQuestions() {
   var ts = _el("#test-type-select"); if (ts) testMode = ts.value;
   var sIdx = parseInt(_getVal("#test-start-idx"))||1, eIdx = parseInt(_getVal("#test-end-idx"))||10;
@@ -354,6 +416,9 @@ function submitFullTest() {
   }
   _hide("#test-submit-btn"); _show("#test-result-summary"); _txt("#test-final-score", score); _txt("#test-final-total", testQuestions.length); window.scrollTo({top:0, behavior:'smooth'});
 }
+
+function updateCwRangeBounds() { var max = activeSet().cards.length||1; var e = _el("#cw-end-idx"); if(e){ e.max=max; if(!e.value || parseInt(e.value)>max) e.value=max; } }
+function cleanWord(w) { return w.replace(/[^a-zA-Z]/g,"").toUpperCase(); }
 
 function generateCrossword() {
   var sIdx = parseInt(_getVal("#cw-start-idx"))||1, eIdx = parseInt(_getVal("#cw-end-idx"))||10, cType = _getVal("#cw-clue-type-select") || "meaning";
@@ -413,6 +478,83 @@ function generateCrossword() {
   drawCrosswordGrid(); _hide("#cw-setup-panel"); _show("#cw-run-panel"); _show("#cw-submit-btn"); _hide("#cw-result-summary");
 }
 
+function drawCrosswordGrid() {
+  if(cwWordsPlaced.length===0) return;
+  var mX=999, mx=-999, mY=999, my=-999;
+  for(var k in cwGridData){ var p=k.split(','); var x=parseInt(p[0]), y=parseInt(p[1]); if(x<mX)mX=x; if(x>mx)mx=x; if(y<mY)mY=y; if(y>my)my=y; }
+  var cont = _el("#cw-grid-container"); var tb = document.createElement("table"); tb.className="cw-board";
+  
+  for(var r=mY; r<=my; r++){
+    var tr=document.createElement("tr");
+    for(var c=mX; c<=mx; c++){
+      var td=document.createElement("td"); td.className="cw-cell"; var cd=cwGridData[c+','+r];
+      if(!cd) td.classList.add("empty");
+      else {
+        var isS=false, sN=0;
+        for(var i=0; i<cwWordsPlaced.length; i++) if(cwWordsPlaced[i].x===c && cwWordsPlaced[i].y===r){ isS=true; sN=cwWordsPlaced[i].num; break; }
+        if(isS){ var sp=document.createElement("span"); sp.className="cw-number"; sp.textContent=sN; td.appendChild(sp); }
+        
+        var inp=document.createElement("input"); inp.type="text"; inp.className="cw-input"; inp.maxLength=1;
+        inp.setAttribute("autocomplete", "off"); inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "characters"); inp.setAttribute("spellcheck", "false");
+        inp.dataset.x=c; inp.dataset.y=r; inp.dataset.wids=cd.wordIds.join(",");
+        
+        inp.addEventListener("click", function(e){
+          var wids=e.target.dataset.wids.split(",");
+          if(wids.length>1 && document.activeElement===e.target){ cwCurrentWordId=(cwCurrentWordId==parseInt(wids[0]))?parseInt(wids[1]):parseInt(wids[0]); cwCurrentDir=getWordById(cwCurrentWordId).dir; highlightCurrentCwWord(); }
+        });
+        inp.addEventListener("focus", function(e){
+          var wids=e.target.dataset.wids.split(",");
+          if(cwCurrentWordId===null || wids.indexOf(String(cwCurrentWordId))===-1){ cwCurrentWordId=parseInt(wids[0]); cwCurrentDir=getWordById(cwCurrentWordId).dir; }
+          highlightCurrentCwWord(); setTimeout(function(){e.target.select();}, 10);
+        });
+        inp.addEventListener("keydown", function(e){
+          var cx=parseInt(e.target.dataset.x), cy=parseInt(e.target.dataset.y);
+          if(e.key==="Backspace"){ if(e.target.value===""){ e.preventDefault(); focusCwCell(cx-(cwCurrentDir==='H'?1:0), cy-(cwCurrentDir==='V'?1:0)); } else { e.target.value=""; e.preventDefault(); } } 
+          else if(e.key==="ArrowRight"){ e.preventDefault(); focusCwCell(cx+1,cy); } else if(e.key==="ArrowLeft"){ e.preventDefault(); focusCwCell(cx-1,cy); } else if(e.key==="ArrowDown"){ e.preventDefault(); focusCwCell(cx,cy+1); } else if(e.key==="ArrowUp"){ e.preventDefault(); focusCwCell(cx,cy-1); }
+        });
+        inp.addEventListener("input", function(e){
+          var v=e.target.value.replace(/[^a-zA-Z]/g,"").toUpperCase();
+          if(v.length>0){ e.target.value=v.charAt(v.length-1); focusCwCell(parseInt(e.target.dataset.x)+(cwCurrentDir==='H'?1:0), parseInt(e.target.dataset.y)+(cwCurrentDir==='V'?1:0)); } else e.target.value="";
+        });
+        td.appendChild(inp);
+      } tr.appendChild(td);
+    } tb.appendChild(tr);
+  }
+  if(cont) { cont.innerHTML=""; cont.appendChild(tb); }
+
+  var aL = _el("#cw-across-list"), dL = _el("#cw-down-list");
+  if(aL) aL.innerHTML=""; if(dL) dL.innerHTML="";
+  for(var w=0; w<cwWordsPlaced.length; w++){
+    var wp=cwWordsPlaced[w], li=document.createElement("li"); li.className="cw-clue-item"; li.id="cw-clue-"+wp.id;
+    li.innerHTML="<span class='cw-clue-num'>"+wp.num+".</span> "+wp.clue;
+    if(wp.dir==='H' && aL) aL.appendChild(li); else if(dL) dL.appendChild(li);
+  }
+}
+
+function getWordById(id) { for(var i=0; i<cwWordsPlaced.length; i++) if(cwWordsPlaced[i].id===id) return cwWordsPlaced[i]; return null; }
+function focusCwCell(x,y) { var inp=_el(".cw-input[data-x='"+x+"'][data-y='"+y+"']"); if(inp) inp.focus(); }
+function highlightCurrentCwWord() {
+  document.querySelectorAll(".cw-cell").forEach(function(c){c.classList.remove("active-word");});
+  document.querySelectorAll(".cw-clue-item").forEach(function(c){c.classList.remove("active");});
+  if(cwCurrentWordId===null) return;
+  document.querySelectorAll(".cw-input").forEach(function(inp){ if(inp.dataset.wids.split(",").indexOf(String(cwCurrentWordId))!==-1) inp.parentElement.classList.add("active-word"); });
+  var el=_el("#cw-clue-"+cwCurrentWordId); if(el) el.classList.add("active");
+}
+
+function submitCrossword() {
+  if(!confirm("Chốt đáp án và kiểm tra?")) return;
+  var allC=true;
+  document.querySelectorAll(".cw-input").forEach(function(inp){
+    var ex=cwGridData[inp.dataset.x+','+inp.dataset.y].char; inp.disabled=true;
+    if(inp.value.toUpperCase()===ex) inp.parentElement.classList.add("correct");
+    else { inp.parentElement.classList.add("incorrect"); inp.value=ex; allC=false; }
+  });
+  _hide("#cw-submit-btn"); _show("#cw-result-summary");
+  var t=_el("#cw-result-title");
+  if(t){ t.textContent = allC ? "Tuyệt Vời! Ô chữ đã giải mã 100%!" : "Chưa hoàn hảo. Xem lại ô đỏ!"; t.style.color = allC ? "var(--lime)" : "var(--rose)"; }
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
 function parseRawVocabulary(text) {
   var lines=text.trim().split("\n"), cards=[];
   lines.forEach(function(l){
@@ -436,7 +578,6 @@ function parseRawVocabulary(text) {
   }); return cards;
 }
 
-// KHỞI CHẠY LẦN ĐẦU & EVENT BINDING TỔNG HỢP CŨ
 document.addEventListener("DOMContentLoaded", function() {
 
   var bsf = _el("#btn-save-firebase");
@@ -552,6 +693,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
   applyTheme(loadTheme());
   updateSelectDropdowns();
+  
+  // Khởi động
   startStudy();
   renderWords();
   renderHome();
