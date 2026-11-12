@@ -6,17 +6,11 @@
     <meta name="theme-color" content="#10120f" />
     <meta name="description" content="A focused space to study SAT vocabulary." />
     <title>SAT Vocabulary Master</title>
-    
-    <script>
-      window.onerror = function(msg, url, line) { alert("BÁO LỖI HỆ THỐNG:\n" + msg + "\nTại dòng: " + line); };
-    </script>
-
+    <script>window.onerror = function(msg, url, line) { alert("BÁO LỖI HỆ THỐNG:\n" + msg + "\nTại dòng: " + line); };</script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;900&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
-    
-    <!-- ĐÃ CẬP NHẬT VERSION ĐỂ XÓA CACHE TRÌNH DUYỆT -->
-    <link rel="stylesheet" href="styles.css?v=75" />
+    <link rel="stylesheet" href="styles.css?v=85" />
   </head>
   <body>
     <div class="app-shell">
@@ -38,7 +32,7 @@
           </div>
           <details class="settings-menu" id="settings-menu">
             <summary class="settings-trigger" aria-label="Open settings" title="Settings">
-              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a1.7 1.7 0 1 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 1 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 1 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 1 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
             </summary>
             <div class="settings-panel">
               <section class="settings-group">
@@ -83,6 +77,7 @@
           </section>
         </section>
 
+        <!-- STUDY VIEW ĐƯỢC TÍCH HỢP 4 NÚT SRS (ĐỒNG BỘ VỚI REELS) -->
         <section class="view" id="study-view" hidden>
           <div class="study-heading"><div><p class="eyebrow">YOUR DAILY PRACTICE</p><h1>A word at a time.</h1></div></div>
           <div class="study-meta">
@@ -116,16 +111,14 @@
             </article>
           </div>
 
-          <!-- ĐÃ KHÔI PHỤC LẠI 2 NÚT CHO PHẦN STUDY ĐỂ APP.JS HOẠT ĐỘNG -->
+          <!-- BẢNG 4 NÚT SRS CHO STUDY (SỬA LẠI ĐÚNG GIAO DIỆN) -->
           <div class="answer-area" id="answer-area">
-            <div class="answer-actions">
-              <button class="answer-button answer-review" id="review-button" type="button">
-                  <span class="answer-title">× Hard</span><span class="answer-delay" id="hard-delay">Show in 15 sec</span>
-              </button>
-              <button class="answer-button answer-remember" id="remember-button" type="button">
-                  <span class="answer-title">✓ Easy</span><span class="answer-delay" id="easy-delay">Show in 2 min</span>
-              </button>
-            </div>
+             <div class="srs-grid">
+                 <button class="rs-btn rs-super-hard" data-study-grade="super-hard">SUPER HARD<span class="rs-delay">45 sec</span></button>
+                 <button class="rs-btn rs-hard" data-study-grade="hard">HARD<span class="rs-delay">2 min</span></button>
+                 <button class="rs-btn rs-easy" data-study-grade="easy">EASY<span class="rs-delay">5 min</span></button>
+                 <button class="rs-btn rs-super-easy" data-study-grade="super-easy">SUPER EASY<span class="rs-delay">20 min</span></button>
+             </div>
           </div>
 
           <section class="review-waiting" id="review-waiting" hidden>
@@ -142,27 +135,19 @@
           </section>
         </section>
 
+        <!-- KHOẢNG TRỜI REELS -->
         <section class="view reels-view" id="reels-view" hidden>
             <div class="reels-container" id="reels-container">
-                <!-- Nút nhạc đã được CSS dời xuống dưới trái -->
+                <!-- Javascript sẽ đổ Reel dọc vào đây -->
+            </div>
+            <!-- Nút nhạc đã được CSS dời xuống dưới trái -->
+            <div class="music-toggle" id="music-toggle" title="Phát nhạc thư giãn">
+                <span class="music-icon">🎵</span> Lofi Chill
             </div>
             <audio id="chill-audio" loop preload="none">
                 <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
             </audio>
         </section>
-
-        <div class="comment-sheet-overlay" id="comment-overlay"></div>
-        <div class="comment-sheet" id="comment-sheet">
-            <div class="comment-header">
-                <span>Bình luận (<span id="comment-count">0</span>)</span>
-                <button class="close-comment" id="close-comment">×</button>
-            </div>
-            <div class="comment-list" id="comment-list"></div>
-            <div class="comment-input-area">
-                <input type="text" id="comment-input" placeholder="Nhập bình luận của bạn..." autocomplete="off">
-                <button id="send-comment-btn" class="send-comment-btn">Gửi</button>
-            </div>
-        </div>
 
         <section class="view test-view" id="test-view" hidden>
           <div class="study-heading" style="margin-bottom: 30px;"><div><p class="eyebrow">TEST MODE</p><h1>Written Test.</h1></div></div>
@@ -266,11 +251,24 @@
       </footer>
     </div>
 
-    <!-- KHAI BÁO FIREBASE & APP.JS VERSION ĐƯỢC CHỈNH LẠI -->
+    <!-- KHUNG COMMENT ĐÃ ĐƯỢC TÁCH HOÀN TOÀN RA KHỎI LUỒNG TRANG CHÍNH -->
+    <div class="comment-sheet-overlay" id="comment-overlay"></div>
+    <div class="comment-sheet" id="comment-sheet">
+        <div class="comment-header">
+            <span>Bình luận (<span id="comment-count">0</span>)</span>
+            <button class="close-comment" id="close-comment">×</button>
+        </div>
+        <div class="comment-list" id="comment-list"></div>
+        <div class="comment-input-area">
+            <input type="text" id="comment-input" placeholder="Nhập bình luận của bạn..." autocomplete="off">
+            <button id="send-comment-btn" class="send-comment-btn">Gửi</button>
+        </div>
+    </div>
+
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="sets.js?v=999"></script>
-    <script src="app.js?v=75"></script>
+    <script src="app.js?v=85"></script>
   </body>
 </html>

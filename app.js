@@ -133,13 +133,12 @@ function createReelItem() {
     if (type === 4 && !hasSynonym) type = 2; if (type === 5 && !hasSynonym) type = 3;
     var reelId = activeSetId + "_" + cleanWord(wordObj.word) + "_T" + type; reelDiv.dataset.reelid = reelId;
     var contentBox = document.createElement("div"); contentBox.className = "reel-content-box";
-    var srsPanelHtml = `<div class="reel-srs-panel"><div class="reel-srs-grid"><button class="rs-btn rs-super-hard" data-delay="45000">S.HARD<span class="rs-delay">45 sec</span></button><button class="rs-btn rs-hard" data-delay="120000">HARD<span class="rs-delay">2 min</span></button><button class="rs-btn rs-easy" data-delay="300000">EASY<span class="rs-delay">5 min</span></button><button class="rs-btn rs-super-easy" data-delay="1200000">S.EASY<span class="rs-delay">20 min</span></button></div></div>`;
 
     if (type === 1) {
         var synStr = hasSynonym ? "Đồng nghĩa: " + wordObj.synonyms.join(", ") : ""; var exStr = highlightWordHtml(wordObj.example || "", wordObj.word);
-        contentBox.innerHTML = `<div class="reel-fc"><div class="reel-fc-pos">${wordObj.pos.toUpperCase()}</div><div class="reel-fc-word">${wordObj.word}</div><div class="reel-fc-meaning">${wordObj.translation}</div>${hasSynonym ? `<div class="reel-fc-example" style="border-left-color:#ff8fa3">${synStr}</div>` : ''}${exStr ? `<div class="reel-fc-example">Ví dụ: ${exStr}</div>` : ''}<div class="tap-hint-reel">Chạm để xem nghĩa</div></div>` + srsPanelHtml;
-        var fcBox = contentBox.querySelector('.reel-fc'), srsPanel = contentBox.querySelector('.reel-srs-panel');
-        fcBox.addEventListener('click', function() { fcBox.classList.add('revealed'); srsPanel.classList.add('show'); speakWord(wordObj.word); });
+        contentBox.innerHTML = `<div class="reel-fc"><div class="reel-fc-pos">${wordObj.pos.toUpperCase()}</div><div class="reel-fc-word">${wordObj.word}</div><div class="reel-fc-meaning">${wordObj.translation}</div>${hasSynonym ? `<div class="reel-fc-example" style="border-left-color:#ff8fa3">${synStr}</div>` : ''}${exStr ? `<div class="reel-fc-example">Ví dụ: ${exStr}</div>` : ''}<div class="tap-hint-reel">Chạm để xem nghĩa</div></div>`;
+        var fcBox = contentBox.querySelector('.reel-fc');
+        fcBox.addEventListener('click', function() { fcBox.classList.add('revealed'); speakWord(wordObj.word); });
     } else {
         var allWords = activeSet().cards; var options = [wordObj];
         while(options.length < 4 && options.length < allWords.length) { var rand = allWords[Math.floor(Math.random() * allWords.length)]; if (!options.find(o => o.word === rand.word)) options.push(rand); }
@@ -150,17 +149,19 @@ function createReelItem() {
             var optText = ""; if (type === 2 || type === 4) optText = opt.word; if (type === 3) optText = opt.translation; if (type === 5) optText = (opt.synonyms && opt.synonyms.length > 0) ? opt.synonyms.join(", ") : opt.translation; 
             var isCorrect = (opt.word === wordObj.word) ? 'true' : 'false'; return `<div class="reel-mcq-opt" data-correct="${isCorrect}">${optText}</div>`;
         }).join("");
-        contentBox.innerHTML = `<div class="reel-mcq-question">${questionStr}</div><div class="reel-mcq-options">${optionsHtml}</div>` + srsPanelHtml;
-        var srsPanel = contentBox.querySelector('.reel-srs-panel'), opts = contentBox.querySelectorAll('.reel-mcq-opt');
+        contentBox.innerHTML = `<div class="reel-mcq-question">${questionStr}</div><div class="reel-mcq-options">${optionsHtml}</div>`;
+        var opts = contentBox.querySelectorAll('.reel-mcq-opt');
         opts.forEach(btn => {
             btn.addEventListener('click', function() {
                 opts.forEach(b => b.style.pointerEvents = 'none');
                 if (this.dataset.correct === 'true') { this.classList.add('correct'); } else { this.classList.add('incorrect'); contentBox.querySelector('.reel-mcq-opt[data-correct="true"]').classList.add('correct'); }
-                srsPanel.classList.add('show'); speakWord(wordObj.word);
+                speakWord(wordObj.word);
             });
         });
     }
 
+    var srsPanelHtml = `<div class="srs-grid"><button class="rs-btn rs-super-hard" data-delay="45000">SUPER HARD<span class="rs-delay">45 sec</span></button><button class="rs-btn rs-hard" data-delay="120000">HARD<span class="rs-delay">2 min</span></button><button class="rs-btn rs-easy" data-delay="300000">EASY<span class="rs-delay">5 min</span></button><button class="rs-btn rs-super-easy" data-delay="1200000">SUPER EASY<span class="rs-delay">20 min</span></button></div>`;
+    contentBox.insertAdjacentHTML('beforeend', srsPanelHtml);
     var srsBtns = contentBox.querySelectorAll('.rs-btn');
     srsBtns.forEach(btn => {
         btn.addEventListener('click', function() {
@@ -168,6 +169,7 @@ function createReelItem() {
             var nextReel = reelDiv.nextElementSibling; if (nextReel) { container.scrollBy({ top: container.clientHeight, behavior: 'smooth' }); }
         });
     });
+
     reelDiv.appendChild(contentBox);
 
     var socialHtml = `<div class="reel-side-actions"><button class="action-btn btn-like" data-id="${reelId}">♥<span class="action-label">Like</span></button><button class="action-btn btn-comment" data-id="${reelId}">💬<span class="action-label">B.luận</span></button><button class="action-btn btn-share" data-id="${reelId}">➦<span class="action-label">Share</span></button></div>`;
@@ -234,10 +236,26 @@ function startStudy() {
     _hide("#completion-panel"); _hide("#review-waiting"); renderNextCard();
 }
 
-function gradeCard(status) {
-    if (!currentCardObj) return; cardsSeenInSession[currentCardObj.word] = true;
-    if (status === "review") { sessionReviewWords[currentCardObj.word] = true; delete sessionRememberedWords[currentCardObj.word]; statusByWord[currentCardObj.word] = "review"; currentCardObj.step = 0; currentCardObj.availableAt = Date.now()+15000; studyQueue.push(currentCardObj); } 
-    else if (status === "remembered") { if (currentCardObj.step === 0) { currentCardObj.step = 1; currentCardObj.availableAt = Date.now()+120000; studyQueue.push(currentCardObj); } else { sessionRememberedWords[currentCardObj.word] = true; delete sessionReviewWords[currentCardObj.word]; statusByWord[currentCardObj.word] = "remembered"; completedCardsInSession++; } }
+// LOGIC XỬ LÝ 4 NÚT CHO PHẦN STUDY
+function gradeCardStudy(grade) {
+    if (!currentCardObj) return; 
+    cardsSeenInSession[currentCardObj.word] = true;
+    
+    if (grade === "super-hard" || grade === "hard") { 
+        sessionReviewWords[currentCardObj.word] = true; delete sessionRememberedWords[currentCardObj.word]; statusByWord[currentCardObj.word] = "review"; 
+        currentCardObj.step = 0; 
+        currentCardObj.availableAt = Date.now() + (grade === "super-hard" ? 45000 : 120000); 
+        studyQueue.push(currentCardObj); 
+    } 
+    else if (grade === "easy" || grade === "super-easy") { 
+        if (currentCardObj.step === 0) { 
+            currentCardObj.step = 1; 
+            currentCardObj.availableAt = Date.now() + (grade === "easy" ? 300000 : 1200000); 
+            studyQueue.push(currentCardObj); 
+        } else { 
+            sessionRememberedWords[currentCardObj.word] = true; delete sessionReviewWords[currentCardObj.word]; statusByWord[currentCardObj.word] = "remembered"; completedCardsInSession++; 
+        } 
+    }
     currentCardObj = null; saveProgress(); renderNextCard();
 }
 
@@ -412,23 +430,16 @@ function parseRawVocabulary(text) {
 
 document.addEventListener("DOMContentLoaded", function() {
 
-  // KẾT NỐI SỰ KIỆN NÚT COMMENT VÀ ĐĂNG NHẬP
   _bind("#close-comment", "click", closeCommentSheet);
   _bind("#comment-overlay", "click", closeCommentSheet);
   _bind("#send-comment-btn", "click", sendNewComment);
 
-  // NÚT PHÁT NHẠC
   var musicBtn = _el("#music-toggle");
   var audio = _el("#chill-audio");
   if (musicBtn && audio) {
       musicBtn.addEventListener("click", function() {
-          if (audio.paused) {
-              audio.play();
-              musicBtn.classList.add("playing");
-          } else {
-              audio.pause();
-              musicBtn.classList.remove("playing");
-          }
+          if (audio.paused) { audio.play(); musicBtn.classList.add("playing"); } 
+          else { audio.pause(); musicBtn.classList.remove("playing"); }
       });
   }
 
@@ -436,9 +447,7 @@ document.addEventListener("DOMContentLoaded", function() {
   if(authBtn) {
       authBtn.addEventListener("click", function() {
           if(!auth) { alert("Firebase Auth chưa tải xong hoặc bị lỗi kết nối!"); return; }
-          auth.signInWithPopup(authProvider).catch(function(error) { 
-              alert("Lỗi đăng nhập: " + error.message); 
-          });
+          auth.signInWithPopup(authProvider).catch(function(error) { alert("Lỗi đăng nhập: " + error.message); });
       });
   }
 
@@ -471,8 +480,14 @@ document.addEventListener("DOMContentLoaded", function() {
       }).catch(function(err){ console.warn("Lỗi đồng bộ:", err); });
   }
 
-  _bind("#review-button", "click", function(){ gradeCard("review"); });
-  _bind("#remember-button", "click", function(){ gradeCard("remembered"); });
+  // GẮN SỰ KIỆN CHO 4 NÚT TRONG PHẦN STUDY
+  document.querySelectorAll("#study-view .rs-btn").forEach(function(btn) {
+      btn.addEventListener("click", function(e) {
+          var grade = e.currentTarget.dataset.studyGrade;
+          gradeCardStudy(grade);
+      });
+  });
+
   _bind("#restart-button", "click", startStudy);
   _bind("#preview-start", "click", function(){ setView("study"); });
 
@@ -528,8 +543,12 @@ document.addEventListener("DOMContentLoaded", function() {
       var sv = _el("#study-view"), cs = _el("#card-scene"), ffc = _el("#flashcard");
       if(e.target === ffc || (sv && sv.hidden) || (cs && cs.hidden)) return;
       if(e.key === " "){ e.preventDefault(); if(ffc) setCardFace(!ffc.classList.contains("is-flipped")); }
-      if(e.key === "ArrowLeft") gradeCard("review");
-      if(e.key === "ArrowRight") gradeCard("remembered");
+      
+      // Xử lý phím tắt cho 4 nút (Trái/Xuống/Lên/Phải tương ứng Super Hard -> Super Easy)
+      if(e.key === "ArrowLeft") gradeCardStudy("super-hard");
+      if(e.key === "ArrowDown") gradeCardStudy("hard");
+      if(e.key === "ArrowUp") gradeCardStudy("easy");
+      if(e.key === "ArrowRight") gradeCardStudy("super-easy");
   });
 
   applyTheme(loadTheme());
